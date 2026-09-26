@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check } from 'lucide-react';
 
 export const Checkbox = ({ id, checked, onChange, label, className = '' }) => {

@@ -1,13 +1,14 @@
-import React from 'react';
 import { Check } from 'lucide-react';
 
-export const AuthHero = () => {
-  const features = [
-    'Real-time stock & job status',
-    'Digital invoices & receipts',
-    'Remote sales monitoring',
-  ];
-
+export const AuthHero = ({
+  title = "Set up your team in minutes.",
+  subtitle = "Create an account for the owner or add staff logins with the right level of access to each module.",
+  features = [
+    'Role-based access for staff & admin',
+    'Automatic cloud backup',
+    'No setup cost to get started',
+  ]
+}) => {
   return (
     <div className="relative w-full h-full bg-[#111a2e] bg-gradient-to-b from-[#131f38] via-[#0f172a] to-[#0b1222] p-8 md:p-12 lg:p-16 flex flex-col justify-between overflow-hidden">
       {/* Background subtle atmospheric radial light glow */}
@@ -40,22 +41,24 @@ export const AuthHero = () => {
       {/* Main Hero Copy */}
       <div className="relative z-10 my-auto py-12 max-w-lg">
         <h2 className="text-3xl md:text-4xl lg:text-[42px] font-serif font-normal text-white leading-[1.2] tracking-tight mb-5">
-          Run the whole shop from one screen.
+          {title}
         </h2>
         
         <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-8">
-          Sign in to manage inventory, print jobs, billing and reports — from the counter or from anywhere.
+          {subtitle}
         </p>
 
         {/* Feature list */}
-        <ul className="space-y-3.5">
-          {features.map((feature, idx) => (
-            <li key={idx} className="flex items-center gap-3 text-slate-200 text-xs md:text-sm font-medium">
-              <Check className="w-4 h-4 text-[#d5983b] stroke-[2.5] flex-shrink-0" />
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
+        {features && features.length > 0 && (
+          <ul className="space-y-3.5">
+            {features.map((feature, idx) => (
+              <li key={idx} className="flex items-center gap-3 text-slate-200 text-xs md:text-sm font-medium">
+                <Check className="w-4 h-4 text-[#d5983b] stroke-[2.5] flex-shrink-0" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Footer info */}
