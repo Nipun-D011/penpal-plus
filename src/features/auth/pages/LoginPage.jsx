@@ -7,7 +7,7 @@ export const LoginPage = () => {
 
   const handleLogin = async (credentials) => {
     console.log('Logging in with:', credentials);
-    // integrate with auth service / Firebase here
+    navigate('/dashboard');
   };
 
   const handleGoogleSignIn = async () => {

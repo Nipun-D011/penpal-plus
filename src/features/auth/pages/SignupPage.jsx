@@ -7,7 +7,7 @@ export const SignupPage = () => {
 
   const handleSignup = async (formData) => {
     console.log('Registering user with:', formData);
-    // Integrate with authentication service or Firebase here
+    navigate('/dashboard');
   };
 
   const handleNavigateLogin = () => {
