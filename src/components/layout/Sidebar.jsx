@@ -16,11 +16,14 @@ import {
   ChevronUp,
 } from 'lucide-react';
 
+import { useAuth } from '../../context/AuthContext';
+
 export const Sidebar = ({ isOpen, onClose }) => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   // Close profile popup on click outside
   useEffect(() => {
@@ -35,6 +38,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
 
   const handleLogout = () => {
     setProfileMenuOpen(false);
+    logout();
     navigate('/login');
   };
 

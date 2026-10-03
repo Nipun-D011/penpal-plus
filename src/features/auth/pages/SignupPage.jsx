@@ -1,13 +1,20 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import SignupForm from '../components/SignupForm';
+import { useAuth } from '../../../context/AuthContext';
 
 export const SignupPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSignup = async (formData) => {
-    console.log('Registering user with:', formData);
-    navigate('/dashboard');
+    try {
+      await login(formData);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Registration error:', error);
+    }
   };
 
   const handleNavigateLogin = () => {

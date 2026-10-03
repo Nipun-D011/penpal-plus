@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Menu, LogOut, User, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 export const Header = ({ onToggleSidebar, title = 'Dashboard', subtitle = "Wednesday, 19 August 2026 · Overview of today's shop activity" }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -20,6 +22,7 @@ export const Header = ({ onToggleSidebar, title = 'Dashboard', subtitle = "Wedne
 
   const handleLogout = () => {
     setProfileOpen(false);
+    logout();
     navigate('/login');
   };
 

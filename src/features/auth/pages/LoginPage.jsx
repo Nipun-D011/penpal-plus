@@ -1,18 +1,29 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import LoginForm from '../components/LoginForm';
+import { useAuth } from '../../../context/AuthContext';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleLogin = async (credentials) => {
-    console.log('Logging in with:', credentials);
-    navigate('/dashboard');
+    try {
+      await login(credentials);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    console.log('Initiating Google OAuth');
-    // integrate with Google auth here
+    try {
+      await login({ identifier: 'aravinda@penpalplus.lk', fullName: 'Aravinda Perera' });
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Google Sign In error:', error);
+    }
   };
 
   return (
