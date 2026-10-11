@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
-export const DashboardLayout = ({ children, title, subtitle }) => {
+export const DashboardLayout = ({ children, title, subtitle, headerActions = null }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -12,10 +12,11 @@ export const DashboardLayout = ({ children, title, subtitle }) => {
 
       {/* Main Content Area Container */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Fixed Header (Red Outlined Area - Stays Fixed at Top, Not Scrollable) */}
+        {/* Fixed Header (Stays Fixed at Top, Not Scrollable) */}
         <Header
           title={title}
           subtitle={subtitle}
+          actions={headerActions}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
 
