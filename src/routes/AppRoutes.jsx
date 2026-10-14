@@ -4,6 +4,7 @@ import LoginPage from '../features/auth/pages/LoginPage';
 import SignupPage from '../features/auth/pages/SignupPage';
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import InventoryPage from '../features/inventory/pages/InventoryPage';
+import CustomersPage from '../features/customers/pages/CustomersPage';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
@@ -90,7 +91,7 @@ export const AppRoutes = () => {
           path="/customers"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <CustomersPage />
             </ProtectedRoute>
           }
         />

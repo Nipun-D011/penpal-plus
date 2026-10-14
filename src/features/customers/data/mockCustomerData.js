@@ -1,0 +1,93 @@
+export const mockCustomers = [
+  {
+    id: 'cust-1',
+    name: 'Kumari Fonseka',
+    initials: 'KF',
+    avatarBg: 'bg-[#15803d]', // Green
+    phone: '077 233 1190',
+    city: 'Kurunegala',
+    ordersCount: 18,
+    totalSpent: 'Rs. 42,300',
+    totalSpentFormatted: '42.3K',
+    lastVisit: '19 Aug 2026',
+    customerSince: '2023',
+    purchaseHistory: [
+      { id: 'INV-2026-0846', date: '19 Aug', amount: 'Rs. 1,450' },
+      { id: 'INV-2026-0801', date: '04 Aug', amount: 'Rs. 6,500' },
+      { id: 'INV-2026-0762', date: '22 Jul', amount: 'Rs. 2,100' },
+    ],
+  },
+  {
+    id: 'cust-2',
+    name: "St. Anne's College",
+    initials: 'SA',
+    avatarBg: 'bg-[#2563eb]', // Blue
+    phone: '037 222 4471',
+    city: 'Kurunegala',
+    ordersCount: 34,
+    totalSpent: 'Rs. 216,700',
+    totalSpentFormatted: '216.7K',
+    lastVisit: '19 Aug 2026',
+    customerSince: '2021',
+    purchaseHistory: [
+      { id: 'INV-2026-0850', date: '19 Aug', amount: 'Rs. 18,900' },
+      { id: 'INV-2026-0812', date: '12 Aug', amount: 'Rs. 45,000' },
+      { id: 'INV-2026-0790', date: '28 Jul', amount: 'Rs. 32,400' },
+      { id: 'INV-2026-0744', date: '15 Jul', amount: 'Rs. 28,500' },
+    ],
+  },
+  {
+    id: 'cust-3',
+    name: 'Ruwan Jayasuriya',
+    initials: 'RJ',
+    avatarBg: 'bg-[#d97706]', // Amber/Orange
+    phone: '071 908 4423',
+    city: 'Wariyapola',
+    ordersCount: 6,
+    totalSpent: 'Rs. 5,120',
+    totalSpentFormatted: '5.1K',
+    lastVisit: '18 Aug 2026',
+    customerSince: '2025',
+    purchaseHistory: [
+      { id: 'INV-2026-0839', date: '18 Aug', amount: 'Rs. 890' },
+      { id: 'INV-2026-0780', date: '25 Jul', amount: 'Rs. 1,750' },
+      { id: 'INV-2026-0655', date: '10 Jun', amount: 'Rs. 2,480' },
+    ],
+  },
+  {
+    id: 'cust-4',
+    name: 'Lanka Hardware',
+    initials: 'LH',
+    avatarBg: 'bg-[#1e293b]', // Slate/Dark navy
+    phone: '037 222 9981',
+    city: 'Kurunegala',
+    ordersCount: 11,
+    totalSpent: 'Rs. 58,900',
+    totalSpentFormatted: '58.9K',
+    lastVisit: '18 Aug 2026',
+    customerSince: '2022',
+    purchaseHistory: [
+      { id: 'INV-2026-0835', date: '18 Aug', amount: 'Rs. 7,400' },
+      { id: 'INV-2026-0805', date: '06 Aug', amount: 'Rs. 14,200' },
+      { id: 'INV-2026-0750', date: '18 Jul', amount: 'Rs. 9,800' },
+    ],
+  },
+  {
+    id: 'cust-5',
+    name: 'Isuru Bandara',
+    initials: 'IB',
+    avatarBg: 'bg-[#854d0e]', // Bronze/Olive brown
+    phone: '076 512 0093',
+    city: 'Mawathagama',
+    ordersCount: 4,
+    totalSpent: 'Rs. 9,800',
+    totalSpentFormatted: '9.8K',
+    lastVisit: '17 Aug 2026',
+    customerSince: '2024',
+    purchaseHistory: [
+      { id: 'INV-2026-0820', date: '17 Aug', amount: 'Rs. 3,200' },
+      { id: 'INV-2026-0775', date: '20 Jul', amount: 'Rs. 4,100' },
+      { id: 'INV-2026-0690', date: '02 Jun', amount: 'Rs. 2,500' },
+    ],
+  },
+];
