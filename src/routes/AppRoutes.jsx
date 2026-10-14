@@ -5,6 +5,7 @@ import SignupPage from '../features/auth/pages/SignupPage';
 import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import InventoryPage from '../features/inventory/pages/InventoryPage';
 import CustomersPage from '../features/customers/pages/CustomersPage';
+import SuppliersPage from '../features/suppliers/pages/SuppliersPage';
 import BillingPage from '../features/billing/pages/BillingPage';
 import PrintJobsPage from '../features/print-jobs/pages/PrintJobsPage';
 import ProtectedRoute from './ProtectedRoute';
@@ -101,7 +102,7 @@ export const AppRoutes = () => {
           path="/suppliers"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <SuppliersPage />
             </ProtectedRoute>
           }
         />
