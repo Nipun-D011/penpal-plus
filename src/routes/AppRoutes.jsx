@@ -6,6 +6,7 @@ import DashboardPage from '../features/dashboard/pages/DashboardPage';
 import InventoryPage from '../features/inventory/pages/InventoryPage';
 import CustomersPage from '../features/customers/pages/CustomersPage';
 import BillingPage from '../features/billing/pages/BillingPage';
+import PrintJobsPage from '../features/print-jobs/pages/PrintJobsPage';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
@@ -68,7 +69,7 @@ export const AppRoutes = () => {
           path="/print-jobs"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <PrintJobsPage />
             </ProtectedRoute>
           }
         />
