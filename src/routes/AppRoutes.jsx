@@ -8,6 +8,7 @@ import CustomersPage from '../features/customers/pages/CustomersPage';
 import SuppliersPage from '../features/suppliers/pages/SuppliersPage';
 import BillingPage from '../features/billing/pages/BillingPage';
 import PrintJobsPage from '../features/print-jobs/pages/PrintJobsPage';
+import OrdersPage from '../features/orders/pages/OrdersPage';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
@@ -78,7 +79,7 @@ export const AppRoutes = () => {
           path="/orders"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <OrdersPage />
             </ProtectedRoute>
           }
         />
