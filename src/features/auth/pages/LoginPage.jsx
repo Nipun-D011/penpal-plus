@@ -10,8 +10,14 @@ export const LoginPage = () => {
 
   const handleLogin = async (credentials) => {
     try {
-      await login(credentials);
-      navigate('/dashboard');
+      const user = await login(credentials);
+      if (user?.role === 'Customer') {
+        navigate('/portal/orders');
+      } else if (user?.role === 'Supplier') {
+        navigate('/supplier/portal');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Login error:', error);
     }

@@ -54,13 +54,64 @@ export const LoginForm = ({ onSubmit, onGoogleSignIn, onForgotPassword, onRegist
   return (
     <div className="w-full max-w-[390px] mx-auto px-4 sm:px-0">
       {/* Header text */}
-      <div className="text-left mb-8">
+      <div className="text-left mb-6">
         <h2 className="text-2xl md:text-3xl font-serif font-bold text-[#111827] tracking-tight">
           Welcome back
         </h2>
         <p className="text-sm text-slate-500 mt-1.5 font-normal">
           Sign in to your Pen Pal Plus account
         </p>
+      </div>
+
+      {/* Demo Quick Logins Bar */}
+      <div className="mb-6 p-2.5 bg-slate-50 border border-slate-200/90 rounded-xl text-left">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+          Select Role / Demo Account
+        </span>
+        <div className="grid grid-cols-3 gap-1.5 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => {
+              setIdentifier('aravinda@penpalplus.lk');
+              setPassword('admin123');
+            }}
+            className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+              identifier.includes('aravinda')
+                ? 'bg-[#131d33] text-white border-[#131d33]'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            👔 Admin
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIdentifier('kumari.fonseka@gmail.com');
+              setPassword('customer123');
+            }}
+            className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+              identifier.includes('kumari')
+                ? 'bg-[#131d33] text-white border-[#131d33]'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            👤 Customer
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIdentifier('orders@sarasavi.lk');
+              setPassword('supplier123');
+            }}
+            className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+              identifier.includes('sarasavi')
+                ? 'bg-[#131d33] text-white border-[#131d33]'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            🏢 Supplier
+          </button>
+        </div>
       </div>
 
       {errors.form && (

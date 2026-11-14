@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Tag, User, UserCheck } from 'lucide-react';
+import { Tag, User, UserCheck, Truck } from 'lucide-react';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
 import Checkbox from '../../../components/common/Checkbox';
@@ -85,6 +85,11 @@ export const SignupForm = ({ onSubmit, onLogin }) => {
       label: 'Customer',
       icon: UserCheck,
     },
+    {
+      id: 'supplier',
+      label: 'Supplier',
+      icon: Truck,
+    },
   ];
 
   return (
@@ -112,7 +117,7 @@ export const SignupForm = ({ onSubmit, onLogin }) => {
           <label className="block text-xs font-semibold text-slate-800 uppercase tracking-wide mb-2 text-left">
             Account type
           </label>
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-2">
             {accountTypes.map((type) => {
               const Icon = type.icon;
               const isSelected = accountType === type.id;

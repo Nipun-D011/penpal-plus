@@ -9,11 +9,13 @@ import SuppliersPage from '../features/suppliers/pages/SuppliersPage';
 import BillingPage from '../features/billing/pages/BillingPage';
 import PrintJobsPage from '../features/print-jobs/pages/PrintJobsPage';
 import OrdersPage from '../features/orders/pages/OrdersPage';
+import CustomerPortalPage from '../features/customer-portal/pages/CustomerPortalPage';
+import SupplierPortalPage from '../features/supplier-portal/pages/SupplierPortalPage';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
 const RootRedirect = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return (
@@ -23,11 +25,17 @@ const RootRedirect = () => {
     );
   }
 
-  return isAuthenticated ? (
-    <Navigate to="/dashboard" replace />
-  ) : (
-    <Navigate to="/login" replace />
-  );
+  if (isAuthenticated) {
+    if (user?.role === 'Customer') {
+      return <Navigate to="/portal/orders" replace />;
+    }
+    if (user?.role === 'Supplier') {
+      return <Navigate to="/supplier/portal" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Navigate to="/login" replace />;
 };
 
 export const AppRoutes = () => {
@@ -112,6 +120,66 @@ export const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Customer Portal Routes */}
+        <Route
+          path="/portal"
+          element={<Navigate to="/portal/orders" replace />}
+        />
+        <Route
+          path="/portal/orders"
+          element={
+            <ProtectedRoute>
+              <CustomerPortalPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/portal/invoices"
+          element={
+            <ProtectedRoute>
+              <CustomerPortalPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/portal/profile"
+          element={
+            <ProtectedRoute>
+              <CustomerPortalPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Supplier Portal Routes */}
+        <Route
+          path="/supplier"
+          element={<Navigate to="/supplier/portal" replace />}
+        />
+        <Route
+          path="/supplier/portal"
+          element={
+            <ProtectedRoute>
+              <SupplierPortalPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier/purchase-orders"
+          element={
+            <ProtectedRoute>
+              <SupplierPortalPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier/bills"
+          element={
+            <ProtectedRoute>
+              <SupplierPortalPage />
             </ProtectedRoute>
           }
         />

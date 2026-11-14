@@ -10,9 +10,10 @@ import {
   Users,
   Truck,
   Tag,
+  UserCheck,
+  Building2,
   X,
   LogOut,
-  User,
   ChevronUp,
 } from 'lucide-react';
 
@@ -64,6 +65,13 @@ export const Sidebar = ({ isOpen, onClose }) => {
       items: [
         { name: 'Customers', path: '/customers', icon: Users },
         { name: 'Suppliers', path: '/suppliers', icon: Truck },
+      ],
+    },
+    {
+      title: 'PORTALS',
+      items: [
+        { name: 'Customer portal', path: '/portal/orders', icon: UserCheck },
+        { name: 'Supplier portal', path: '/supplier/portal', icon: Building2 },
       ],
     },
     {
@@ -160,11 +168,11 @@ export const Sidebar = ({ isOpen, onClose }) => {
           {profileMenuOpen && (
             <div className="absolute bottom-full left-4 right-4 mb-2 bg-[#1a2642] border border-slate-700/80 rounded-xl shadow-2xl p-2 z-50 text-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-150">
               <div className="px-3 py-2.5 border-b border-slate-700/60">
-                <p className="text-xs font-semibold text-white">Aravinda Perera</p>
-                <p className="text-[11px] text-slate-400 truncate">aravinda@penpalplus.lk</p>
+                <p className="text-xs font-semibold text-white">{user?.name || 'Aravinda Perera'}</p>
+                <p className="text-[11px] text-slate-400 truncate">{user?.email || 'aravinda@penpalplus.lk'}</p>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[10px] text-slate-300 font-medium">Owner / Admin</span>
+                  <span className="text-[10px] text-slate-300 font-medium">{user?.role || 'Owner / Admin'}</span>
                 </div>
               </div>
 
@@ -191,14 +199,14 @@ export const Sidebar = ({ isOpen, onClose }) => {
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-full bg-[#d97706] text-white flex items-center justify-center font-bold text-xs shadow-inner flex-shrink-0">
-                AP
+                {user?.name ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'AP'}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-white text-xs font-semibold truncate leading-tight">
-                  Aravinda Perera
+                  {user?.name || 'Aravinda Perera'}
                 </span>
                 <span className="text-slate-400 text-[11px] truncate mt-0.5">
-                  Owner / Admin
+                  {user?.role || 'Owner / Admin'}
                 </span>
               </div>
             </div>
