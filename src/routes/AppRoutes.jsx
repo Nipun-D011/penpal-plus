@@ -11,6 +11,8 @@ import PrintJobsPage from '../features/print-jobs/pages/PrintJobsPage';
 import OrdersPage from '../features/orders/pages/OrdersPage';
 import CustomerPortalPage from '../features/customer-portal/pages/CustomerPortalPage';
 import SupplierPortalPage from '../features/supplier-portal/pages/SupplierPortalPage';
+import ReportsPage from '../features/reports/pages/ReportsPage';
+import RateCardPage from '../features/rate-card/pages/RateCardPage';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 
@@ -63,7 +65,7 @@ export const AppRoutes = () => {
           path="/reports"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <ReportsPage />
             </ProtectedRoute>
           }
         />
@@ -119,7 +121,7 @@ export const AppRoutes = () => {
           path="/rate-card"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <RateCardPage />
             </ProtectedRoute>
           }
         />
