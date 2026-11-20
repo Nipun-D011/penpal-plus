@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { mockPrintJobs } from '../src/features/print-jobs/data/mockPrintJobData.js';
+import { mockOrders } from '../src/features/orders/data/mockOrderData.js';
 
 // 1. Manually parse .env for Node.js environment
 const parseEnv = () => {
@@ -197,7 +198,7 @@ async function seed() {
 
   try {
     // 1. Seed Inventory
-    process.stdout.write('[1/3] Seeding inventory items...');
+    process.stdout.write('[1/5] Seeding inventory items...');
     for (const item of inventoryItems) {
       await setDoc(doc(db, 'inventory', item.id), {
         ...item,
@@ -207,7 +208,7 @@ async function seed() {
     console.log(` [DONE] (${inventoryItems.length} items seeded)`);
 
     // 2. Seed Suppliers
-    process.stdout.write('[2/3] Seeding suppliers...');
+    process.stdout.write('[2/5] Seeding suppliers...');
     for (const sup of suppliers) {
       await setDoc(doc(db, 'suppliers', sup.id), {
         ...sup,
@@ -217,7 +218,7 @@ async function seed() {
     console.log(` [DONE] (${suppliers.length} suppliers seeded)`);
 
     // 3. Seed Rate Cards
-    process.stdout.write('[3/4] Seeding printing rate cards...');
+    process.stdout.write('[3/5] Seeding printing rate cards...');
     for (const rc of rateCards) {
       await setDoc(doc(db, 'rate_cards', rc.id), {
         ...rc,
@@ -227,7 +228,7 @@ async function seed() {
     console.log(` [DONE] (${rateCards.length} rate cards seeded)`);
 
     // 4. Seed Print Jobs
-    process.stdout.write('[4/4] Seeding print jobs...');
+    process.stdout.write('[4/5] Seeding print jobs...');
     for (const job of mockPrintJobs) {
       await setDoc(doc(db, 'print_jobs', job.id), {
         ...job,
@@ -235,6 +236,16 @@ async function seed() {
       });
     }
     console.log(` [DONE] (${mockPrintJobs.length} print jobs seeded)`);
+
+    // 5. Seed Customer Orders
+    process.stdout.write('[5/5] Seeding customer orders...');
+    for (const order of mockOrders) {
+      await setDoc(doc(db, 'orders', order.id), {
+        ...order,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log(` [DONE] (${mockOrders.length} customer orders seeded)`);
 
     console.log('\nDatabase seeding completed successfully.');
     console.log('You can check the Firebase Console under Firestore Database to view the data.\n');

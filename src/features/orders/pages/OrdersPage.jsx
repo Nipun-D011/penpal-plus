@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderFilters from '../components/OrderFilters';
@@ -6,6 +6,11 @@ import OrdersTable from '../components/OrdersTable';
 import OrderDetailProgressCard from '../components/OrderDetailProgressCard';
 import NewOrderModal from '../components/NewOrderModal';
 import { mockOrderStatusTabs, mockOrders } from '../data/mockOrderData';
+import {
+  subscribeToOrders,
+  createOrder,
+  updateOrderStatus,
+} from '../../../services/orderService';
 
 export const OrdersPage = () => {
   const [orders, setOrders] = useState(mockOrders);
@@ -14,20 +19,37 @@ export const OrdersPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
+  // Subscribe to real-time Firestore updates
+  useEffect(() => {
+    const unsubscribe = subscribeToOrders(
+      (firestoreOrders) => {
+        if (firestoreOrders && firestoreOrders.length > 0) {
+          setOrders(firestoreOrders);
+        }
+      },
+      (error) => {
+        console.error('Firestore customer orders subscription error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Filter orders based on status tab and search query
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Tab filter
+      const q = searchQuery.toLowerCase().trim();
+      const id = order.id || '';
+      const customer = order.customer || '';
+
       const matchesTab =
         activeTab === 'All' ||
-        order.status.toLowerCase() === activeTab.toLowerCase();
+        order.status?.toLowerCase() === activeTab.toLowerCase();
 
-      // Search filter
-      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        order.id.toLowerCase().includes(q) ||
-        order.customer.toLowerCase().includes(q);
+        id.toLowerCase().includes(q) ||
+        customer.toLowerCase().includes(q);
 
       return matchesTab && matchesSearch;
     });
@@ -46,9 +68,29 @@ export const OrdersPage = () => {
     setSelectedOrderId(order.id);
   };
 
-  const handleAddNewOrder = (newOrder) => {
-    setOrders((prev) => [newOrder, ...prev]);
-    setSelectedOrderId(newOrder.id);
+  const handleAddNewOrder = async (newOrder) => {
+    try {
+      await createOrder(newOrder);
+      setSelectedOrderId(newOrder.id);
+    } catch (error) {
+      console.error('Failed to create order in Firestore:', error);
+      setOrders((prev) => [newOrder, ...prev]);
+      setSelectedOrderId(newOrder.id);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId, newStatus, newStep) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, status: newStatus, statusStep: newStep } : o
+      )
+    );
+
+    try {
+      await updateOrderStatus(orderId, newStatus, newStep);
+    } catch (error) {
+      console.error('Failed to update order status in Firestore:', error);
+    }
   };
 
   const headerActions = (
@@ -86,7 +128,10 @@ export const OrdersPage = () => {
         />
 
         {/* Bottom Order Progress & Detail Card */}
-        <OrderDetailProgressCard order={selectedOrder} />
+        <OrderDetailProgressCard
+          order={selectedOrder}
+          onUpdateStatus={handleUpdateOrderStatus}
+        />
       </div>
 
       {/* New Order Modal Dialog */}
