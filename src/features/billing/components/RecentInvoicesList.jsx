@@ -1,7 +1,8 @@
 import React from 'react';
 
 export const RecentInvoicesList = ({
-  invoices,
+  invoices = [],
+  loading = false,
   onSelectInvoice,
   onViewAll,
 }) => {
@@ -52,43 +53,51 @@ export const RecentInvoicesList = ({
 
       {/* Invoices List */}
       <div className="divide-y divide-slate-100">
-        {invoices.map((inv) => (
-          <div
-            key={inv.id}
-            onClick={() => onSelectInvoice && onSelectInvoice(inv)}
-            className="py-4.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-slate-50/70 -mx-4 px-4 rounded-xl transition-all"
-          >
-            {/* Left: Avatar + Details */}
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div
-                className={`w-9 h-9 md:w-10 md:h-10 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-sm ${
-                  inv.avatarBg || 'bg-[#15803d]'
-                }`}
-              >
-                {inv.initials || 'IN'}
-              </div>
-
-              <div className="flex flex-col min-w-0">
-                <span className="font-bold text-xs md:text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                  {inv.id}
-                </span>
-                <span className="text-xs text-slate-500 truncate mt-0.5">
-                  {inv.customer} · {inv.date}
-                </span>
-              </div>
-            </div>
-
-            {/* Right: Amount + Status */}
-            <div className="flex flex-col items-end flex-shrink-0">
-              <span className="font-bold text-xs md:text-sm text-slate-900">
-                {inv.amount}
-              </span>
-              <div className="mt-1">
-                {getStatusBadge(inv.status)}
-              </div>
-            </div>
+        {loading ? (
+          <div className="py-12 text-center text-xs text-slate-400">
+            Loading live invoices...
           </div>
-        ))}
+        ) : invoices.length === 0 ? (
+          <div className="py-12 text-center text-xs text-slate-400">
+            No invoices generated yet.
+          </div>
+        ) : (
+          invoices.slice(0, 6).map((inv) => (
+            <div
+              key={inv.id}
+              onClick={() => onSelectInvoice && onSelectInvoice(inv)}
+              className="py-4.5 flex items-center justify-between gap-3 group cursor-pointer hover:bg-slate-50/70 -mx-4 px-4 rounded-xl transition-all"
+            >
+              {/* Left: Avatar + Details */}
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div
+                  className={`w-9 h-9 md:w-10 md:h-10 rounded-full text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-sm ${
+                    inv.avatarBg || 'bg-[#15803d]'
+                  }`}
+                >
+                  {inv.initials || 'IN'}
+                </div>
+
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-xs md:text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {inv.invoiceNumber || inv.id}
+                  </span>
+                  <span className="text-xs text-slate-500 truncate mt-0.5">
+                    {inv.customer || inv.customerName} · {inv.date || 'Recent'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Amount + Status */}
+              <div className="flex flex-col items-end flex-shrink-0">
+                <span className="font-bold text-xs md:text-sm text-slate-900">
+                  {inv.amount || `Rs. ${(inv.numericAmount || inv.totalDue || 0).toLocaleString()}`}
+                </span>
+                <div className="mt-1">{getStatusBadge(inv.status)}</div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

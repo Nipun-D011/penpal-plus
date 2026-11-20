@@ -5,6 +5,7 @@ import { mockSuppliers } from '../features/suppliers/data/mockSupplierData';
 import { mockOrders } from '../features/orders/data/mockOrderData';
 import { mockPrintJobs } from '../features/print-jobs/data/mockPrintJobData';
 import { mockSupplierPurchaseOrders, mockSupplierBills } from '../features/supplier-portal/data/mockSupplierPortalData';
+import { mockRecentInvoices } from '../features/billing/data/mockBillingData';
 
 export const mockRateCards = [
   { id: 'rc-1', service: 'Photocopy – black & white', unit: 'Per page', standardRate: 'Rs. 3.00', bulkRate: 'Rs. 2.50 (100+)', lastUpdated: '10 Aug 2026' },
@@ -87,6 +88,15 @@ export const seedFirestoreDatabase = async (onProgress = () => {}) => {
       await setDoc(doc(db, 'supplier_bills', bill.id), {
         ...bill,
         createdAt: serverTimestamp(),
+      });
+    }
+
+    onProgress('Seeding billing invoices...');
+    for (const inv of mockRecentInvoices) {
+      await setDoc(doc(db, 'invoices', inv.id), {
+        ...inv,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
     }
 

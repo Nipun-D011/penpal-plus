@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer, CheckCircle2 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import NewInvoiceCard from '../components/NewInvoiceCard';
@@ -9,14 +9,64 @@ import {
   mockRecentInvoices,
   initialInvoiceFormState,
 } from '../data/mockBillingData';
+import {
+  subscribeToInvoices,
+  createInvoice,
+  generateNextInvoiceNumber,
+} from '../../../services/billingService';
+import { subscribeToInventory } from '../../../services/inventoryService';
 
 export const BillingPage = () => {
   const [invoices, setInvoices] = useState(mockRecentInvoices);
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [invoiceForm, setInvoiceForm] = useState(initialInvoiceFormState);
   const [activeReceipt, setActiveReceipt] = useState(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [isViewAllOpen, setIsViewAllOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Subscribe to live invoices from Cloud Firestore
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToInvoices(
+      (liveInvoices) => {
+        if (liveInvoices && liveInvoices.length > 0) {
+          setInvoices(liveInvoices);
+          // Set invoice number to next available sequence
+          setInvoiceForm((prev) => ({
+            ...prev,
+            invoiceNumber: generateNextInvoiceNumber(liveInvoices),
+          }));
+        } else {
+          setInvoices(mockRecentInvoices);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to live invoices:', error);
+        setInvoices(mockRecentInvoices);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to live inventory items so they can be billed and stocks shown
+  useEffect(() => {
+    const unsubscribe = subscribeToInventory(
+      (items) => {
+        setInventoryItems(items || []);
+      },
+      (error) => {
+        console.error('Error listening to inventory items for billing:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   // Helper to show temporary notification
   const showToast = (message) => {
@@ -39,81 +89,171 @@ export const BillingPage = () => {
     setIsReceiptOpen(true);
   };
 
-  // Save & Generate Invoice
-  const handleSaveAndGenerate = () => {
-    const nextInvNumber = `INV-2026-${String(invoices.length + 843).padStart(4, '0')}`;
-    
-    // Extract initials and name
-    const rawCustomer = invoiceForm.customerName || 'General Customer';
-    const cleanCustomer = rawCustomer.split(' - ')[0].split(' · ')[0];
-    const initials = cleanCustomer
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
+  // Save & Generate Invoice (persists to Firestore and deducts inventory)
+  const handleSaveAndGenerate = async () => {
+    // Validate items
+    const validItems = invoiceForm.items.filter(
+      (item) => item.description?.trim() !== '' && (parseFloat(item.amount) > 0 || parseFloat(item.rate) > 0)
+    );
 
-    const newInvoiceRecord = {
-      id: invoiceForm.invoiceNumber,
-      invoiceNumber: invoiceForm.invoiceNumber,
-      customer: cleanCustomer,
-      customerName: rawCustomer,
-      customerPhone: invoiceForm.customerPhone || '077 233 1190',
-      initials: initials || 'PP',
-      avatarBg: 'bg-[#15803d]', // Green by default
-      date: 'Today',
-      fullDate: `${new Date().toLocaleDateString('en-GB', {
+    if (validItems.length === 0) {
+      showToast('Please add at least one line item or service before generating.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const rawCustomer = invoiceForm.customerName || 'General Customer';
+      const cleanCustomer = rawCustomer.split(' - ')[0].split(' · ')[0];
+      const initials =
+        cleanCustomer
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase() || 'PP';
+
+      const now = new Date();
+      const fullDate = `${now.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-      })} · ${new Date().toLocaleTimeString('en-GB', {
+      })} · ${now.toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
-      })}`,
-      amount: `Rs. ${invoiceForm.totalDue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-      numericAmount: invoiceForm.totalDue,
-      status: 'Paid',
-      statusVariant: 'paid',
-      paymentMethod: invoiceForm.paymentMethod || 'Cash',
-      items: [...invoiceForm.items],
-      subtotal: invoiceForm.subtotal,
-      discount: invoiceForm.discount,
-      totalDue: invoiceForm.totalDue,
-    };
+      })}`;
 
-    // Prepend to recent invoices
-    setInvoices((prev) => [newInvoiceRecord, ...prev]);
+      const newInvoiceRecord = {
+        invoiceNumber: invoiceForm.invoiceNumber,
+        customer: cleanCustomer,
+        customerName: rawCustomer,
+        customerPhone: invoiceForm.customerPhone || '077 233 1190',
+        initials: initials,
+        avatarBg: 'bg-[#15803d]',
+        date: 'Today',
+        fullDate: fullDate,
+        amount: `Rs. ${invoiceForm.totalDue.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        numericAmount: invoiceForm.totalDue,
+        status: 'Paid',
+        statusVariant: 'paid',
+        paymentMethod: invoiceForm.paymentMethod || 'Cash',
+        items: validItems,
+        subtotal: invoiceForm.subtotal,
+        discount: invoiceForm.discount,
+        totalDue: invoiceForm.totalDue,
+      };
 
-    // Open receipt modal for printing
-    setActiveReceipt(newInvoiceRecord);
-    setIsReceiptOpen(true);
-    showToast(`Invoice ${invoiceForm.invoiceNumber} generated & saved successfully!`);
+      // Save to Cloud Firestore & deduct inventory
+      const created = await createInvoice(newInvoiceRecord);
 
-    // Prepare next invoice form with incremented number
-    setInvoiceForm({
-      ...initialInvoiceFormState,
-      invoiceNumber: nextInvNumber,
-      items: [
-        {
-          id: `item-${Date.now()}`,
-          description: '',
-          qty: 1,
-          rate: 0,
-          amount: 0,
-        },
-      ],
-      subtotal: 0,
-      discount: 0,
-      totalDue: 0,
-    });
+      // Open receipt modal for preview / printing
+      setActiveReceipt(created);
+      setIsReceiptOpen(true);
+      showToast(`Invoice ${invoiceForm.invoiceNumber} saved & stock deducted!`);
+
+      // Prepare next invoice form
+      const nextInvNumber = generateNextInvoiceNumber([...invoices, created]);
+      setInvoiceForm({
+        ...initialInvoiceFormState,
+        invoiceNumber: nextInvNumber,
+        items: [
+          {
+            id: `item-${Date.now()}`,
+            description: '',
+            qty: 1,
+            rate: 0,
+            amount: 0,
+          },
+        ],
+        subtotal: 0,
+        discount: 0,
+        totalDue: 0,
+      });
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+      showToast('Error saving invoice. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Save as Draft
-  const handleSaveAsDraft = () => {
-    showToast(`Invoice ${invoiceForm.invoiceNumber} saved as draft.`);
+  const handleSaveAsDraft = async () => {
+    setIsSubmitting(true);
+    try {
+      const rawCustomer = invoiceForm.customerName || 'General Customer';
+      const cleanCustomer = rawCustomer.split(' - ')[0].split(' · ')[0];
+      const initials =
+        cleanCustomer
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase() || 'PP';
+
+      const now = new Date();
+      const fullDate = `${now.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })} · ${now.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+
+      const draftRecord = {
+        invoiceNumber: invoiceForm.invoiceNumber,
+        customer: cleanCustomer,
+        customerName: rawCustomer,
+        customerPhone: invoiceForm.customerPhone || '077 233 1190',
+        initials: initials,
+        avatarBg: 'bg-[#64748b]',
+        date: 'Today',
+        fullDate: fullDate,
+        amount: `Rs. ${invoiceForm.totalDue.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        numericAmount: invoiceForm.totalDue,
+        status: 'Pending',
+        statusVariant: 'pending',
+        paymentMethod: invoiceForm.paymentMethod || 'Cash',
+        items: invoiceForm.items.filter((i) => i.description?.trim() !== ''),
+        subtotal: invoiceForm.subtotal,
+        discount: invoiceForm.discount,
+        totalDue: invoiceForm.totalDue,
+        isDraft: true,
+      };
+
+      const created = await createInvoice(draftRecord);
+      showToast(`Invoice ${invoiceForm.invoiceNumber} saved as draft.`);
+
+      const nextInvNumber = generateNextInvoiceNumber([...invoices, created]);
+      setInvoiceForm({
+        ...initialInvoiceFormState,
+        invoiceNumber: nextInvNumber,
+        items: [
+          {
+            id: `item-${Date.now()}`,
+            description: '',
+            qty: 1,
+            rate: 0,
+            amount: 0,
+          },
+        ],
+        subtotal: 0,
+        discount: 0,
+        totalDue: 0,
+      });
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      showToast('Error saving draft invoice.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const headerActions = (
@@ -147,6 +287,8 @@ export const BillingPage = () => {
         <div className="lg:col-span-7 xl:col-span-7">
           <NewInvoiceCard
             invoiceData={invoiceForm}
+            inventoryItems={inventoryItems}
+            isSubmitting={isSubmitting}
             onUpdateInvoice={setInvoiceForm}
             onSaveAndGenerate={handleSaveAndGenerate}
             onSaveAsDraft={handleSaveAsDraft}
@@ -157,6 +299,7 @@ export const BillingPage = () => {
         <div className="lg:col-span-5 xl:col-span-5">
           <RecentInvoicesList
             invoices={invoices}
+            loading={loading}
             onSelectInvoice={handleSelectRecentInvoice}
             onViewAll={() => setIsViewAllOpen(true)}
           />
