@@ -22,7 +22,12 @@ export const AddItemModal = ({ isOpen, onClose, onAdd, categories }) => {
     if (!code.trim()) newErrors.code = 'SKU / ISBN is required';
     if (!stock || isNaN(stock)) newErrors.stock = 'Valid stock number is required';
     if (!reorderLevel || isNaN(reorderLevel)) newErrors.reorderLevel = 'Valid reorder level is required';
-    if (!unitPrice.trim()) newErrors.unitPrice = 'Unit price is required';
+    const cleanPrice = String(unitPrice).replace(/[^0-9.]/g, '');
+    const numPrice = parseFloat(cleanPrice);
+
+    if (!cleanPrice || isNaN(numPrice)) {
+      newErrors.unitPrice = 'Valid unit price is required';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -51,7 +56,7 @@ export const AddItemModal = ({ isOpen, onClose, onAdd, categories }) => {
       category,
       stock: numStock,
       reorderLevel: numReorder,
-      unitPrice: unitPrice.startsWith('Rs.') ? unitPrice : `Rs. ${unitPrice}`,
+      unitPrice: `Rs. ${numPrice.toLocaleString()}`,
       status,
       statusVariant,
     };
