@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { mockPrintJobs } from '../src/features/print-jobs/data/mockPrintJobData.js';
 
 // 1. Manually parse .env for Node.js environment
 const parseEnv = () => {
@@ -216,7 +217,7 @@ async function seed() {
     console.log(` [DONE] (${suppliers.length} suppliers seeded)`);
 
     // 3. Seed Rate Cards
-    process.stdout.write('[3/3] Seeding printing rate cards...');
+    process.stdout.write('[3/4] Seeding printing rate cards...');
     for (const rc of rateCards) {
       await setDoc(doc(db, 'rate_cards', rc.id), {
         ...rc,
@@ -224,6 +225,16 @@ async function seed() {
       });
     }
     console.log(` [DONE] (${rateCards.length} rate cards seeded)`);
+
+    // 4. Seed Print Jobs
+    process.stdout.write('[4/4] Seeding print jobs...');
+    for (const job of mockPrintJobs) {
+      await setDoc(doc(db, 'print_jobs', job.id), {
+        ...job,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log(` [DONE] (${mockPrintJobs.length} print jobs seeded)`);
 
     console.log('\nDatabase seeding completed successfully.');
     console.log('You can check the Firebase Console under Firestore Database to view the data.\n');
