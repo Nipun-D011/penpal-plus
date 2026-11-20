@@ -63,7 +63,15 @@ export const SignupForm = ({ onSubmit, onLogin }) => {
         alert(`Account created successfully for ${fullName} (${accountType})!`);
       }
     } catch (err) {
-      setErrors({ form: err.message || 'Failed to create account. Please try again.' });
+      let msg = err.message || 'Failed to create account. Please try again.';
+      if (err.code === 'auth/email-already-in-use') {
+        msg = 'An account with this email address already exists. Please sign in instead.';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'The password is too weak. Please use a stronger password with at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Please enter a valid email address.';
+      }
+      setErrors({ form: msg });
     } finally {
       setIsLoading(false);
     }
