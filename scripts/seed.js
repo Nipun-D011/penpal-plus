@@ -7,6 +7,7 @@ import { mockOrders } from '../src/features/orders/data/mockOrderData.js';
 import { mockRecentInvoices } from '../src/features/billing/data/mockBillingData.js';
 import { mockSuppliers } from '../src/features/suppliers/data/mockSupplierData.js';
 import { mockCustomers } from '../src/features/customers/data/mockCustomerData.js';
+import { initialRateCardData } from '../src/features/rate-card/data/mockRateCardData.js';
 
 // 1. Manually parse .env for Node.js environment
 const parseEnv = () => {
@@ -232,13 +233,13 @@ async function seed() {
 
     // 4. Seed Rate Cards
     process.stdout.write('[4/7] Seeding printing rate cards...');
-    for (const rc of rateCards) {
+    for (const rc of initialRateCardData) {
       await setDoc(doc(db, 'rate_cards', rc.id), {
         ...rc,
         updatedAt: serverTimestamp(),
       });
     }
-    console.log(` [DONE] (${rateCards.length} rate cards seeded)`);
+    console.log(` [DONE] (${initialRateCardData.length} rate cards seeded)`);
 
     // 5. Seed Print Jobs
     process.stdout.write('[5/7] Seeding print jobs...');

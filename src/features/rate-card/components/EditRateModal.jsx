@@ -21,26 +21,33 @@ const EditRateModalForm = ({ rateItem, onClose, onUpdate, onDelete }) => {
   const [service, setService] = useState(rateItem.service || '');
   const [unit, setUnit] = useState(rateItem.unit || 'Per page');
 
-  const initialStdNum = rateItem.rawStandardRate !== undefined && rateItem.rawStandardRate !== null
-    ? String(rateItem.rawStandardRate)
-    : rateItem.standardRate?.replace(/[^0-9.]/g, '') || '';
+  const initialStdNum =
+    rateItem.rawStandardRate !== undefined && rateItem.rawStandardRate !== null
+      ? String(rateItem.rawStandardRate)
+      : rateItem.standardRate?.replace(/[^0-9.]/g, '') || '';
   const [standardRate, setStandardRate] = useState(initialStdNum);
 
   const initialHasBulk = Boolean(rateItem.bulkRate && rateItem.bulkRate !== '—');
   const [hasBulkRate, setHasBulkRate] = useState(initialHasBulk);
 
-  const initialBulkNum = rateItem.rawBulkRate !== undefined && rateItem.rawBulkRate !== null
-    ? String(rateItem.rawBulkRate)
-    : (rateItem.bulkRate ? rateItem.bulkRate.split('(')[0]?.replace(/[^0-9.]/g, '') : '') || '';
+  const initialBulkNum =
+    rateItem.rawBulkRate !== undefined && rateItem.rawBulkRate !== null
+      ? String(rateItem.rawBulkRate)
+      : (rateItem.bulkRate
+          ? rateItem.bulkRate.split('(')[0]?.replace(/[^0-9.]/g, '')
+          : '') || '';
   const [bulkRate, setBulkRate] = useState(initialBulkNum);
 
   const threshMatch = rateItem.bulkRate?.match(/\(([^)]+)\)/);
-  const initialThresh = rateItem.bulkThreshold || (threshMatch ? threshMatch[1] : '100+');
+  const initialThresh =
+    rateItem.bulkThreshold || (threshMatch ? threshMatch[1] : '100+');
   const [bulkThreshold, setBulkThreshold] = useState(initialThresh);
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -103,14 +110,36 @@ const EditRateModalForm = ({ rateItem, onClose, onUpdate, onDelete }) => {
       lastUpdated: formattedDate,
     };
 
-    onUpdate(updatedItem);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      if (onUpdate) {
+        await onUpdate(updatedItem);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to update rate card:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to remove "${rateItem.service}" from the rate card?`)) {
-      onDelete(rateItem.id);
-      onClose();
+  const handleDelete = async () => {
+    if (
+      window.confirm(
+        `Are you sure you want to remove "${rateItem.service}" from the rate card?`
+      )
+    ) {
+      setIsDeleting(true);
+      try {
+        if (onDelete) {
+          await onDelete(rateItem.id);
+        }
+        onClose();
+      } catch (err) {
+        console.error('Failed to delete rate card:', err);
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -123,10 +152,11 @@ const EditRateModalForm = ({ rateItem, onClose, onUpdate, onDelete }) => {
               Edit service rate
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Update pricing and bulk rules for {rateItem.service}
+              Modify standard or tier pricing for this service
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
@@ -134,41 +164,32 @@ const EditRateModalForm = ({ rateItem, onClose, onUpdate, onDelete }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <Input
-            label="Service Name"
+            id="edit-service-name"
+            label="Service / Item Description"
             value={service}
             onChange={(e) => setService(e.target.value)}
             error={errors.service}
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Pricing Unit
-              </label>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#131d33]/15 focus:border-[#131d33] transition-all shadow-sm"
-              >
-                <option value="Per page">Per page</option>
-                <option value="Per sheet (A4)">Per sheet (A4)</option>
-                <option value="Per sheet (A3)">Per sheet (A3)</option>
-                <option value="Per document">Per document</option>
-                <option value="Per sq. ft">Per sq. ft</option>
-                <option value="Per 100">Per 100</option>
-                <option value="Per card">Per card</option>
-                <option value="Per book">Per book</option>
-                <option value="Per hour">Per hour</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              id="edit-unit"
+              label="Billing Unit"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              error={errors.unit}
+              required
+            />
 
             <Input
+              id="edit-standard-rate"
               label="Standard Rate (Rs.)"
               type="number"
               step="0.01"
+              min="0"
               value={standardRate}
               onChange={(e) => setStandardRate(e.target.value)}
               error={errors.standardRate}
@@ -176,63 +197,79 @@ const EditRateModalForm = ({ rateItem, onClose, onUpdate, onDelete }) => {
             />
           </div>
 
-          <div className="pt-2 border-t border-slate-100">
-            <label className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer select-none">
+          {/* Bulk Tier Checkbox Toggle */}
+          <div className="pt-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={hasBulkRate}
                 onChange={(e) => setHasBulkRate(e.target.checked)}
-                className="rounded border-slate-300 text-[#131d33] focus:ring-[#131d33]"
+                className="w-4 h-4 rounded border-slate-300 text-[#dfa84a] focus:ring-[#dfa84a]"
               />
-              Enable tiered bulk discount pricing
+              <span className="text-xs font-semibold text-slate-700">
+                Offer special discounted bulk rate
+              </span>
             </label>
+          </div>
 
-            {hasBulkRate && (
-              <div className="grid grid-cols-2 gap-4 mt-3 pl-6 pt-1 animate-in fade-in duration-150">
+          {/* Bulk Rate Details (Conditional) */}
+          {hasBulkRate && (
+            <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Bulk Tier Pricing
+              </span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Input
+                  id="edit-bulk-rate"
                   label="Bulk Rate (Rs.)"
                   type="number"
                   step="0.01"
+                  min="0"
                   value={bulkRate}
                   onChange={(e) => setBulkRate(e.target.value)}
                   error={errors.bulkRate}
-                  required={hasBulkRate}
                 />
+
                 <Input
+                  id="edit-bulk-thresh"
                   label="Minimum Threshold"
                   value={bulkThreshold}
                   onChange={(e) => setBulkThreshold(e.target.value)}
                   error={errors.bulkThreshold}
-                  required={hasBulkRate}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
+          {/* Footer Actions */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={handleDelete}
-              className="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-rose-50 transition-colors"
+              disabled={isDeleting || isSubmitting}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 p-1 rounded transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" />
-              <span>Delete rate</span>
+              <span>{isDeleting ? 'Deleting...' : 'Delete rate'}</span>
             </button>
 
-            <div className="flex items-center gap-3">
-              <Button
+            <div className="flex items-center gap-2">
+              <button
                 type="button"
-                variant="outline"
                 onClick={onClose}
-                className="w-auto !py-2.5 px-4 text-xs"
+                disabled={isSubmitting || isDeleting}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
-              </Button>
+              </button>
               <Button
                 type="submit"
-                className="w-auto !py-2.5 px-5 text-xs bg-[#dfa84a] hover:bg-[#c9933b] !text-[#131d33] font-semibold border-none"
+                variant="primary"
+                disabled={isSubmitting || isDeleting}
+                className="w-auto px-5 py-2.5 bg-[#dfa84a] hover:bg-[#c9933b] text-[#131d33] font-semibold text-xs disabled:opacity-50"
               >
-                Save Changes
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>
