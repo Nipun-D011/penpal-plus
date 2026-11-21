@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Download, Calendar } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import ReportKpiCards from '../components/ReportKpiCards';
@@ -7,12 +7,47 @@ import RevenueByCategoryCard from '../components/RevenueByCategoryCard';
 import TopSellingItemsTable from '../components/TopSellingItemsTable';
 import ExportReportModal from '../components/ExportReportModal';
 import { mockReportsData } from '../data/mockReportsData';
+import { calculateReportsMetrics } from '../../../services/dashboardService';
+import { subscribeToInvoices } from '../../../services/billingService';
+import { subscribeToOrders } from '../../../services/orderService';
 
 export const ReportsPage = () => {
   const [timeframe, setTimeframe] = useState('monthly'); // 'daily' | 'monthly' | 'yearly'
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [invoices, setInvoices] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-  const currentData = mockReportsData.periods[timeframe] || mockReportsData.periods.monthly;
+  // Subscribe to live invoices and orders from Firestore
+  useEffect(() => {
+    const unsubInvoices = subscribeToInvoices((data) => setInvoices(data || []));
+    const unsubOrders = subscribeToOrders((data) => setOrders(data || []));
+
+    return () => {
+      unsubInvoices();
+      unsubOrders();
+    };
+  }, []);
+
+  const baseData = mockReportsData.periods[timeframe] || mockReportsData.periods.monthly;
+
+  const currentData = useMemo(() => {
+    if (invoices.length === 0 && orders.length === 0) {
+      return baseData;
+    }
+
+    const calculated = calculateReportsMetrics({
+      invoices,
+      orders,
+      timeframe,
+    });
+
+    return {
+      ...baseData,
+      label: calculated.label || baseData.label,
+      metrics: calculated.metrics || baseData.metrics,
+      topSellingItems: calculated.topSellingItems || baseData.topSellingItems,
+    };
+  }, [invoices, orders, timeframe, baseData]);
 
   const headerActions = (
     <button
