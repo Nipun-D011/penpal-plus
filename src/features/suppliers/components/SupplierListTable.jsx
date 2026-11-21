@@ -2,6 +2,7 @@ import React from 'react';
 
 export const SupplierListTable = ({
   suppliers,
+  loading = false,
   onViewSupplier,
 }) => {
   return (
@@ -20,7 +21,13 @@ export const SupplierListTable = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs md:text-sm">
-            {suppliers.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="py-12 text-center text-slate-400">
+                  Loading suppliers...
+                </td>
+              </tr>
+            ) : suppliers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-slate-400">
                   No suppliers found.

@@ -1,16 +1,50 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import CustomerListTable from '../components/CustomerListTable';
 import CustomerProfilePanel from '../components/CustomerProfilePanel';
 import AddCustomerModal from '../components/AddCustomerModal';
 import { mockCustomers } from '../data/mockCustomerData';
+import {
+  subscribeToCustomers,
+  addCustomer,
+} from '../../../services/customerService';
 
 export const CustomersPage = () => {
   const [customers, setCustomers] = useState(mockCustomers);
   const [selectedCustomerId, setSelectedCustomerId] = useState(mockCustomers[0]?.id || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Subscribe to real-time customers from Cloud Firestore
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToCustomers(
+      (liveCustomers) => {
+        if (liveCustomers && liveCustomers.length > 0) {
+          setCustomers(liveCustomers);
+          // Keep selection valid
+          setSelectedCustomerId((prevId) => {
+            if (prevId && liveCustomers.some((c) => c.id === prevId)) {
+              return prevId;
+            }
+            return liveCustomers[0]?.id || null;
+          });
+        } else {
+          setCustomers(mockCustomers);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to customers:', error);
+        setCustomers(mockCustomers);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   // Filter customers based on search query
   const filteredCustomers = useMemo(() => {
@@ -19,8 +53,8 @@ export const CustomersPage = () => {
 
     return customers.filter(
       (cust) =>
-        cust.name.toLowerCase().includes(q) ||
-        cust.phone.toLowerCase().includes(q) ||
+        cust.name?.toLowerCase().includes(q) ||
+        cust.phone?.toLowerCase().includes(q) ||
         (cust.city && cust.city.toLowerCase().includes(q))
     );
   }, [customers, searchQuery]);
@@ -38,9 +72,16 @@ export const CustomersPage = () => {
     setSelectedCustomerId(customer.id);
   };
 
-  const handleAddCustomer = (newCustomer) => {
-    setCustomers((prev) => [newCustomer, ...prev]);
-    setSelectedCustomerId(newCustomer.id);
+  const handleAddCustomer = async (newCustomer) => {
+    try {
+      const created = await addCustomer(newCustomer);
+      setSelectedCustomerId(created.id);
+    } catch (error) {
+      console.error('Error adding customer to Firestore:', error);
+      // Fallback local state
+      setCustomers((prev) => [newCustomer, ...prev]);
+      setSelectedCustomerId(newCustomer.id);
+    }
   };
 
   const headerActions = (
@@ -57,7 +98,7 @@ export const CustomersPage = () => {
   return (
     <DashboardLayout
       title="Customers"
-      subtitle="312 profiles · centralized purchase history"
+      subtitle={`${customers.length} profiles · centralized purchase history`}
       headerActions={headerActions}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -65,6 +106,7 @@ export const CustomersPage = () => {
         <div className="lg:col-span-7 xl:col-span-8">
           <CustomerListTable
             customers={filteredCustomers}
+            loading={loading}
             selectedCustomerId={selectedCustomer?.id}
             onSelectCustomer={handleSelectCustomer}
             searchQuery={searchQuery}

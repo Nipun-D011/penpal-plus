@@ -15,10 +15,12 @@ import {
   generateNextInvoiceNumber,
 } from '../../../services/billingService';
 import { subscribeToInventory } from '../../../services/inventoryService';
+import { subscribeToCustomers } from '../../../services/customerService';
 
 export const BillingPage = () => {
   const [invoices, setInvoices] = useState(mockRecentInvoices);
   const [inventoryItems, setInventoryItems] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [invoiceForm, setInvoiceForm] = useState(initialInvoiceFormState);
   const [activeReceipt, setActiveReceipt] = useState(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -62,6 +64,20 @@ export const BillingPage = () => {
       },
       (error) => {
         console.error('Error listening to inventory items for billing:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to live customers for billing dropdown
+  useEffect(() => {
+    const unsubscribe = subscribeToCustomers(
+      (custs) => {
+        setCustomers(custs || []);
+      },
+      (error) => {
+        console.error('Error listening to customers for billing:', error);
       }
     );
 
@@ -288,6 +304,7 @@ export const BillingPage = () => {
           <NewInvoiceCard
             invoiceData={invoiceForm}
             inventoryItems={inventoryItems}
+            customers={customers}
             isSubmitting={isSubmitting}
             onUpdateInvoice={setInvoiceForm}
             onSaveAndGenerate={handleSaveAndGenerate}

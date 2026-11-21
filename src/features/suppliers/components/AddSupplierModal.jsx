@@ -11,6 +11,7 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
   const [address, setAddress] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('Credit 30 Days');
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -23,7 +24,7 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
     'Office Equipment',
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -58,13 +59,22 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
       recentOrders: [],
     };
 
-    onAdd(newSupplier);
-    setName('');
-    setContact('');
-    setEmail('');
-    setAddress('');
-    setErrors({});
-    onClose();
+    setIsSubmitting(true);
+    try {
+      if (onAdd) {
+        await onAdd(newSupplier);
+      }
+      setName('');
+      setContact('');
+      setEmail('');
+      setAddress('');
+      setErrors({});
+      onClose();
+    } catch (err) {
+      console.error('Failed to add supplier:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -101,27 +111,54 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
             required
           />
 
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Category <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-slate-200/90 rounded-lg text-xs md:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#131d33]/15 focus:border-[#131d33] transition-all"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="sup-category"
+                className="block text-xs font-semibold text-slate-700 mb-1.5"
+              >
+                Category
+              </label>
+              <select
+                id="sup-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs md:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#131d33]/15 focus:border-[#131d33] transition-all cursor-pointer"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sup-terms"
+                className="block text-xs font-semibold text-slate-700 mb-1.5"
+              >
+                Payment Terms
+              </label>
+              <select
+                id="sup-terms"
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-xs md:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#131d33]/15 focus:border-[#131d33] transition-all cursor-pointer"
+              >
+                <option value="Credit 30 Days">Credit 30 Days</option>
+                <option value="Credit 15 Days">Credit 15 Days</option>
+                <option value="Net 30 Days">Net 30 Days</option>
+                <option value="Cash on Delivery">Cash on Delivery</option>
+                <option value="Advance Payment">Advance Payment</option>
+              </select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               id="sup-contact"
-              label="Contact Number"
+              label="Contact Phone"
               type="tel"
               placeholder="e.g. 011 258 3390"
               value={contact}
@@ -134,7 +171,7 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
               id="sup-email"
               label="Email Address (Optional)"
               type="email"
-              placeholder="e.g. orders@supplier.lk"
+              placeholder="e.g. orders@sarasavi.lk"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -153,16 +190,18 @@ export const AddSupplierModal = ({ isOpen, onClose, onAdd }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <Button
               type="submit"
               variant="primary"
-              className="w-auto px-5 py-2.5 bg-[#e8a838] hover:bg-[#d89727] text-[#131d33] font-semibold"
+              disabled={isSubmitting}
+              className="w-auto px-5 py-2.5 bg-[#e8a838] hover:bg-[#d89727] text-[#131d33] font-semibold disabled:opacity-50"
             >
-              Save Supplier
+              {isSubmitting ? 'Saving...' : 'Save Supplier'}
             </Button>
           </div>
         </form>

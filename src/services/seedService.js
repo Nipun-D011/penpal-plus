@@ -2,6 +2,7 @@ import { doc, setDoc, serverTimestamp, collection, getDocs, limit, query } from 
 import { db } from './firebase';
 import { mockInventoryItems } from '../features/inventory/data/mockInventoryData';
 import { mockSuppliers } from '../features/suppliers/data/mockSupplierData';
+import { mockCustomers } from '../features/customers/data/mockCustomerData';
 import { mockOrders } from '../features/orders/data/mockOrderData';
 import { mockPrintJobs } from '../features/print-jobs/data/mockPrintJobData';
 import { mockSupplierPurchaseOrders, mockSupplierBills } from '../features/supplier-portal/data/mockSupplierPortalData';
@@ -49,6 +50,14 @@ export const seedFirestoreDatabase = async (onProgress = () => {}) => {
     for (const sup of mockSuppliers) {
       await setDoc(doc(db, 'suppliers', sup.id), {
         ...sup,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    onProgress('Seeding customer profiles...');
+    for (const cust of mockCustomers) {
+      await setDoc(doc(db, 'customers', cust.id), {
+        ...cust,
         updatedAt: serverTimestamp(),
       });
     }

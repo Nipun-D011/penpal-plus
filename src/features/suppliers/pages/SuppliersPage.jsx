@@ -1,19 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import SupplierListTable from '../components/SupplierListTable';
 import AddSupplierModal from '../components/AddSupplierModal';
 import SupplierDetailModal from '../components/SupplierDetailModal';
 import { mockSuppliers } from '../data/mockSupplierData';
+import {
+  subscribeToSuppliers,
+  addSupplier,
+} from '../../../services/supplierService';
 
 export const SuppliersPage = () => {
   const [suppliers, setSuppliers] = useState(mockSuppliers);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleAddSupplier = (newSupplier) => {
-    setSuppliers((prev) => [newSupplier, ...prev]);
+  // Subscribe to real-time suppliers from Cloud Firestore
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToSuppliers(
+      (liveSuppliers) => {
+        if (liveSuppliers && liveSuppliers.length > 0) {
+          setSuppliers(liveSuppliers);
+        } else {
+          setSuppliers(mockSuppliers);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to suppliers:', error);
+        setSuppliers(mockSuppliers);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddSupplier = async (newSupplier) => {
+    try {
+      await addSupplier(newSupplier);
+    } catch (error) {
+      console.error('Error adding supplier to Firestore:', error);
+      setSuppliers((prev) => [newSupplier, ...prev]);
+    }
   };
 
   const handleViewSupplier = (supplier) => {
@@ -43,6 +75,7 @@ export const SuppliersPage = () => {
       <div className="space-y-6">
         <SupplierListTable
           suppliers={suppliers}
+          loading={loading}
           onViewSupplier={handleViewSupplier}
         />
       </div>

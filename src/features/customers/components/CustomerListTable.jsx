@@ -2,6 +2,7 @@ import React from 'react';
 
 export const CustomerListTable = ({
   customers,
+  loading = false,
   selectedCustomerId,
   onSelectCustomer,
   searchQuery,
@@ -33,7 +34,13 @@ export const CustomerListTable = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs md:text-sm">
-            {customers.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-slate-400">
+                  Loading customer profiles...
+                </td>
+              </tr>
+            ) : customers.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-slate-400">
                   No customers found matching &quot;{searchQuery}&quot;.

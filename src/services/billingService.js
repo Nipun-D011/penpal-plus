@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { calculateStockStatus } from './inventoryService';
+import { recordCustomerPurchase } from './customerService';
 
 const INVOICES_COLLECTION = 'invoices';
 const INVENTORY_COLLECTION = 'inventory';
@@ -119,6 +120,11 @@ export const createInvoice = async (invoiceData) => {
     const isDraft = invoiceData.isDraft || invoiceData.status?.toLowerCase() === 'draft';
     if (!isDraft && Array.isArray(invoiceData.items) && invoiceData.items.length > 0) {
       await deductInventoryFromInvoice(invoiceData.items);
+    }
+
+    // If a customer is linked, record this purchase on their customer profile
+    if (!isDraft && invoiceData.customerId) {
+      await recordCustomerPurchase(invoiceData.customerId, invoicePayload);
     }
 
     return { id: invoiceId, ...invoicePayload };

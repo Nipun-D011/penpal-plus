@@ -8,10 +8,11 @@ export const AddCustomerModal = ({ isOpen, onClose, onAdd }) => {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -63,12 +64,21 @@ export const AddCustomerModal = ({ isOpen, onClose, onAdd }) => {
       purchaseHistory: [],
     };
 
-    onAdd(newCustomer);
-    setName('');
-    setPhone('');
-    setCity('');
-    setErrors({});
-    onClose();
+    setIsSubmitting(true);
+    try {
+      if (onAdd) {
+        await onAdd(newCustomer);
+      }
+      setName('');
+      setPhone('');
+      setCity('');
+      setErrors({});
+      onClose();
+    } catch (err) {
+      console.error('Failed to add customer:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -85,6 +95,7 @@ export const AddCustomerModal = ({ isOpen, onClose, onAdd }) => {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           >
@@ -128,16 +139,18 @@ export const AddCustomerModal = ({ isOpen, onClose, onAdd }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <Button
               type="submit"
               variant="primary"
-              className="w-auto px-5 py-2.5 bg-[#e8a838] hover:bg-[#d89727] text-[#131d33] font-semibold"
+              disabled={isSubmitting}
+              className="w-auto px-5 py-2.5 bg-[#e8a838] hover:bg-[#d89727] text-[#131d33] font-semibold disabled:opacity-50"
             >
-              Save Customer
+              {isSubmitting ? 'Saving...' : 'Save Customer'}
             </Button>
           </div>
         </form>

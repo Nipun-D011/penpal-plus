@@ -6,11 +6,13 @@ import { mockCustomers } from '../../customers/data/mockCustomerData';
 export const NewInvoiceCard = ({
   invoiceData,
   inventoryItems = [],
+  customers = [],
   isSubmitting = false,
   onUpdateInvoice,
   onSaveAndGenerate,
   onSaveAsDraft,
 }) => {
+  const customerList = customers && customers.length > 0 ? customers : mockCustomers;
   const [showCatalogDropdown, setShowCatalogDropdown] = useState(false);
   const [catalogTab, setCatalogTab] = useState('inventory'); // 'inventory' | 'services'
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -217,7 +219,7 @@ export const NewInvoiceCard = ({
                 <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                   Select existing customer
                 </div>
-                {mockCustomers.map((cust) => (
+                {customerList.map((cust) => (
                   <button
                     key={cust.id}
                     type="button"
