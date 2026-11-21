@@ -18,11 +18,13 @@ import { mockPortalSuppliers } from '../data/mockSupplierPortalData';
 export const SupplierHeader = ({
   activeSupplier,
   onSelectSupplier,
+  suppliers = [],
   activeTab,
   onTabChange,
   openPOCount = 2,
   alertsCount = 2,
 }) => {
+  const supplierList = suppliers && suppliers.length > 0 ? suppliers : mockPortalSuppliers;
   const [supplierMenuOpen, setSupplierMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -103,7 +105,7 @@ export const SupplierHeader = ({
                     Switch Vendor Account (Demo)
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
-                    {mockPortalSuppliers.map((sup) => (
+                    {supplierList.map((sup) => (
                       <button
                         key={sup.id}
                         type="button"

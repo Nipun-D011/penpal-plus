@@ -8,6 +8,7 @@ import { mockRecentInvoices } from '../src/features/billing/data/mockBillingData
 import { mockSuppliers } from '../src/features/suppliers/data/mockSupplierData.js';
 import { mockCustomers } from '../src/features/customers/data/mockCustomerData.js';
 import { initialRateCardData } from '../src/features/rate-card/data/mockRateCardData.js';
+import { mockSupplierPurchaseOrders, mockSupplierBills } from '../src/features/supplier-portal/data/mockSupplierPortalData.js';
 
 // 1. Manually parse .env for Node.js environment
 const parseEnv = () => {
@@ -202,7 +203,7 @@ async function seed() {
 
   try {
     // 1. Seed Inventory
-    process.stdout.write('[1/7] Seeding inventory items...');
+    process.stdout.write('[1/9] Seeding inventory items...');
     for (const item of inventoryItems) {
       await setDoc(doc(db, 'inventory', item.id), {
         ...item,
@@ -212,7 +213,7 @@ async function seed() {
     console.log(` [DONE] (${inventoryItems.length} items seeded)`);
 
     // 2. Seed Suppliers
-    process.stdout.write('[2/7] Seeding suppliers...');
+    process.stdout.write('[2/9] Seeding suppliers...');
     for (const sup of mockSuppliers) {
       await setDoc(doc(db, 'suppliers', sup.id), {
         ...sup,
@@ -222,7 +223,7 @@ async function seed() {
     console.log(` [DONE] (${mockSuppliers.length} suppliers seeded)`);
 
     // 3. Seed Customers
-    process.stdout.write('[3/7] Seeding customer profiles...');
+    process.stdout.write('[3/9] Seeding customer profiles...');
     for (const cust of mockCustomers) {
       await setDoc(doc(db, 'customers', cust.id), {
         ...cust,
@@ -232,7 +233,7 @@ async function seed() {
     console.log(` [DONE] (${mockCustomers.length} customer profiles seeded)`);
 
     // 4. Seed Rate Cards
-    process.stdout.write('[4/7] Seeding printing rate cards...');
+    process.stdout.write('[4/9] Seeding printing rate cards...');
     for (const rc of initialRateCardData) {
       await setDoc(doc(db, 'rate_cards', rc.id), {
         ...rc,
@@ -242,7 +243,7 @@ async function seed() {
     console.log(` [DONE] (${initialRateCardData.length} rate cards seeded)`);
 
     // 5. Seed Print Jobs
-    process.stdout.write('[5/7] Seeding print jobs...');
+    process.stdout.write('[5/9] Seeding print jobs...');
     for (const job of mockPrintJobs) {
       await setDoc(doc(db, 'print_jobs', job.id), {
         ...job,
@@ -252,7 +253,7 @@ async function seed() {
     console.log(` [DONE] (${mockPrintJobs.length} print jobs seeded)`);
 
     // 6. Seed Customer Orders
-    process.stdout.write('[6/7] Seeding customer orders...');
+    process.stdout.write('[6/9] Seeding customer orders...');
     for (const order of mockOrders) {
       await setDoc(doc(db, 'orders', order.id), {
         ...order,
@@ -262,7 +263,7 @@ async function seed() {
     console.log(` [DONE] (${mockOrders.length} customer orders seeded)`);
 
     // 7. Seed Invoices
-    process.stdout.write('[7/7] Seeding billing invoices...');
+    process.stdout.write('[7/9] Seeding billing invoices...');
     for (const inv of mockRecentInvoices) {
       await setDoc(doc(db, 'invoices', inv.id), {
         ...inv,
@@ -271,6 +272,28 @@ async function seed() {
       });
     }
     console.log(` [DONE] (${mockRecentInvoices.length} billing invoices seeded)`);
+
+    // 8. Seed Purchase Orders
+    process.stdout.write('[8/9] Seeding vendor purchase orders...');
+    for (const po of mockSupplierPurchaseOrders) {
+      await setDoc(doc(db, 'purchase_orders', po.id), {
+        ...po,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log(` [DONE] (${mockSupplierPurchaseOrders.length} purchase orders seeded)`);
+
+    // 9. Seed Supplier Bills
+    process.stdout.write('[9/9] Seeding supplier bills & ledgers...');
+    for (const bill of mockSupplierBills) {
+      await setDoc(doc(db, 'supplier_bills', bill.id), {
+        ...bill,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log(` [DONE] (${mockSupplierBills.length} supplier bills seeded)`);
 
     console.log('\nDatabase seeding completed successfully.');
     console.log('You can check the Firebase Console under Firestore Database to view the data.\n');
