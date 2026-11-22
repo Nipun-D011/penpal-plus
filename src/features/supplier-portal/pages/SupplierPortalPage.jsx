@@ -11,25 +11,25 @@ import {
   mockSupplierBills,
   mockSupplierLowStockAlerts,
 } from '../data/mockSupplierPortalData';
-import {
-  subscribeToSuppliers,
-} from '../../../services/supplierService';
+import { subscribeToSuppliers } from '../../../services/supplierService';
 import {
   subscribeToPurchaseOrders,
   updatePurchaseOrderStatus,
   subscribeToSupplierBills,
 } from '../../../services/portalService';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Building2,
   Phone,
   Mail,
   MapPin,
   CreditCard,
+  Truck,
 } from 'lucide-react';
 
 export const SupplierPortalPage = () => {
+  const { user } = useAuth();
   const [suppliersList, setSuppliersList] = useState(mockPortalSuppliers);
-  const [activeSupplierId, setActiveSupplierId] = useState(mockPortalSuppliers[0]?.id);
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'deliveries', 'bills', 'alerts', 'profile'
   const [selectedPO, setSelectedPO] = useState(null);
   const [poModalOpen, setPOModalOpen] = useState(false);
@@ -54,9 +54,14 @@ export const SupplierPortalPage = () => {
           totalBilledAmount: s.totalPurchases || 'Rs. 250,000',
           totalOutstanding: s.outstanding || 'Rs. 0',
           avatarInitials: s.name
-            ? s.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+            ? s.name
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase()
             : 'SP',
-          avatarBg: s.avatarBg || 'bg-emerald-700',
+          avatarBg: s.avatarBg || 'bg-blue-600 text-white',
         }));
         setSuppliersList(mapped);
       }
@@ -82,35 +87,48 @@ export const SupplierPortalPage = () => {
   }, []);
 
   const activeSupplier = useMemo(() => {
-    return (
-      suppliersList.find((s) => s.id === activeSupplierId) ||
-      suppliersList[0] ||
-      mockPortalSuppliers[0]
-    );
-  }, [suppliersList, activeSupplierId]);
+    if (user?.role === 'Supplier' && user?.id) {
+      const match = suppliersList.find(
+        (s) =>
+          s.id === user.id ||
+          (user.email && s.email?.toLowerCase() === user.email.toLowerCase())
+      );
+      if (match) return match;
+    }
+    return suppliersList[0] || mockPortalSuppliers[0];
+  }, [suppliersList, user]);
 
   // Filter items for current supplier
   const supplierPOs = useMemo(() => {
     const filtered = purchaseOrders.filter(
       (po) => po.supplierId === activeSupplier.id
     );
-    return filtered.length > 0 ? filtered : mockSupplierPurchaseOrders.filter((po) => po.supplierId === 'sup-1');
+    return filtered.length > 0
+      ? filtered
+      : mockSupplierPurchaseOrders.filter((po) => po.supplierId === 'sup-1');
   }, [purchaseOrders, activeSupplier.id]);
 
   const currentSupplierBills = useMemo(() => {
     const filtered = supplierBills.filter(
-      (b) => b.supplierId === activeSupplier.id
+      (bill) => bill.supplierId === activeSupplier.id
     );
-    return filtered.length > 0 ? filtered : mockSupplierBills.filter((b) => b.supplierId === 'sup-1');
+    return filtered.length > 0
+      ? filtered
+      : mockSupplierBills.filter((bill) => bill.supplierId === 'sup-1');
   }, [supplierBills, activeSupplier.id]);
 
-  const supplierAlerts = mockSupplierLowStockAlerts.filter(
-    (a) => a.supplierId === activeSupplier.id
-  );
+  const supplierAlerts = useMemo(() => {
+    return mockSupplierLowStockAlerts.filter(
+      (alert) => alert.supplierCategory === activeSupplier.category
+    );
+  }, [activeSupplier.category]);
 
-  const openPOCount = supplierPOs.filter((po) => po.status !== 'Fulfilled').length;
+  const openPOCount = supplierPOs.filter(
+    (po) => po.status === 'Issued' || po.status === 'Processing'
+  ).length;
+
   const inTransitCount = supplierPOs.filter(
-    (po) => po.status === 'In Transit' || po.status === 'Partially Received'
+    (po) => po.status === 'Dispatched'
   ).length;
 
   const handleOpenPODetails = (po) => {
@@ -119,34 +137,28 @@ export const SupplierPortalPage = () => {
   };
 
   const handleUpdatePOStatus = async (poId, newStatus) => {
-    // Compute updated timeline
-    const targetPO = purchaseOrders.find((po) => po.id === poId);
-    let updatedTimeline = null;
-    if (targetPO && Array.isArray(targetPO.timeline)) {
-      updatedTimeline = targetPO.timeline.map((item) => {
-        if (newStatus === 'Confirmed' && item.step === 2) {
-          return { ...item, completed: true, current: true, time: 'Just now' };
-        }
-        if (newStatus === 'In Transit' && item.step <= 3) {
-          return { ...item, completed: true, current: item.step === 3, time: 'Just now' };
-        }
-        return item;
-      });
-    }
-
     try {
-      await updatePurchaseOrderStatus(poId, newStatus, updatedTimeline);
-    } catch (err) {
-      console.warn('Could not update PO status in Firestore, updating local state:', err);
+      await updatePurchaseOrderStatus(poId, newStatus);
+    } catch (error) {
+      console.error('Error updating purchase order status:', error);
     }
 
     setPurchaseOrders((prev) =>
       prev.map((po) => {
         if (po.id === poId) {
+          const updatedTimeline = [...(po.timeline || [])];
+          if (newStatus === 'Processing' && updatedTimeline[1]) {
+            updatedTimeline[1].completed = true;
+            updatedTimeline[1].current = true;
+          } else if (newStatus === 'Dispatched' && updatedTimeline[2]) {
+            if (updatedTimeline[1]) updatedTimeline[1].completed = true;
+            updatedTimeline[2].completed = true;
+            updatedTimeline[2].current = true;
+          }
           return {
             ...po,
             status: newStatus,
-            timeline: updatedTimeline || po.timeline,
+            timeline: updatedTimeline,
           };
         }
         return po;
@@ -156,11 +168,9 @@ export const SupplierPortalPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col">
-      {/* Branded Supplier Header */}
+      {/* Branded Supplier Header (Without demo switcher) */}
       <SupplierHeader
         activeSupplier={activeSupplier}
-        suppliers={suppliersList}
-        onSelectSupplier={(s) => setActiveSupplierId(s.id)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         openPOCount={openPOCount}
@@ -169,43 +179,22 @@ export const SupplierPortalPage = () => {
 
       {/* Main Content Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Vendor Top Banner */}
-        <div className="bg-gradient-to-r from-[#131d33] via-slate-900 to-[#1e293b] rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Clean Enterprise Vendor Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-400/30 font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
-                {activeSupplier.category}
-              </span>
-              <span className="text-xs text-slate-400">
-                Payment Terms: {activeSupplier.paymentTerms}
-              </span>
-            </div>
-            <h1 className="text-2xl font-serif font-bold text-white tracking-tight">
-              {activeSupplier.name} · Vendor Portal
+            <h1 className="text-2xl lg:text-[26px] font-serif font-bold text-slate-900 tracking-tight leading-tight">
+              {activeSupplier.name}
             </h1>
-            <p className="text-xs text-slate-300 mt-1 max-w-xl">
-              Fulfill purchase orders, track store receipt verification, monitor payment settlements, and review stock reorder alerts for Pen Pal Plus.
+            <p className="text-xs text-slate-500 font-normal mt-0.5">
+              Authorized Supplier Portal · {activeSupplier.category} · Credit Terms: {activeSupplier.paymentTerms}
             </p>
           </div>
 
-          <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-xs flex-shrink-0">
-            <div className="text-right">
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Total Orders
-              </span>
-              <span className="text-lg font-bold text-white font-mono">
-                {activeSupplier.totalOrdersCount}
-              </span>
-            </div>
-            <div className="h-8 w-px bg-white/20" />
-            <div className="text-left">
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Outstanding Balance
-              </span>
-              <span className="text-lg font-bold text-[#dfa84a] font-mono">
-                {activeSupplier.totalOutstanding}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>{activeSupplier.category}</span>
+            </span>
           </div>
         </div>
 
@@ -269,9 +258,14 @@ export const SupplierPortalPage = () => {
                 <h2 className="text-xl font-bold text-slate-900 font-serif">
                   {activeSupplier.name}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Vendor Partner ID: {activeSupplier.id} · {activeSupplier.category}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="bg-blue-500/15 text-blue-700 font-semibold text-[10px] px-2 py-0.5 rounded-md border border-blue-400/20 uppercase tracking-wider">
+                    {activeSupplier.category}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    Vendor Partner ID: {activeSupplier.id}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -280,15 +274,21 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <Building2 className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Contact Representative</span>
-                    <span className="text-slate-600">{activeSupplier.contactPerson || 'Vendor Rep'}</span>
+                    <span className="font-semibold text-slate-900 block">
+                      Contact Representative
+                    </span>
+                    <span className="text-slate-600">
+                      {activeSupplier.contactPerson || 'Vendor Rep'}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
                   <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Phone</span>
+                    <span className="font-semibold text-slate-900 block">
+                      Phone Number
+                    </span>
                     <span className="text-slate-600">{activeSupplier.phone}</span>
                   </div>
                 </div>
@@ -296,7 +296,9 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <Mail className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Email Address</span>
+                    <span className="font-semibold text-slate-900 block">
+                      Email Address
+                    </span>
                     <span className="text-slate-600">{activeSupplier.email}</span>
                   </div>
                 </div>
@@ -306,7 +308,9 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Warehouse / Dispatch Address</span>
+                    <span className="font-semibold text-slate-900 block">
+                      Office / Warehouse Address
+                    </span>
                     <span className="text-slate-600">{activeSupplier.address}</span>
                   </div>
                 </div>
@@ -314,8 +318,24 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Agreed Settlement Terms</span>
-                    <span className="text-slate-600">{activeSupplier.paymentTerms}</span>
+                    <span className="font-semibold text-slate-900 block">
+                      Approved Credit Terms
+                    </span>
+                    <span className="text-slate-600">
+                      {activeSupplier.paymentTerms}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Truck className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">
+                      Lifetime Order Fulfillment
+                    </span>
+                    <span className="text-slate-600">
+                      {activeSupplier.totalOrdersCount} Shipments ({activeSupplier.totalBilledAmount})
+                    </span>
                   </div>
                 </div>
               </div>
@@ -324,11 +344,11 @@ export const SupplierPortalPage = () => {
         )}
       </main>
 
-      {/* PO Detail & Verification Modal */}
+      {/* Purchase Order Details Modal */}
       <PODetailModal
         isOpen={poModalOpen}
         onClose={() => setPOModalOpen(false)}
-        po={selectedPO}
+        purchaseOrder={selectedPO}
         onUpdateStatus={handleUpdatePOStatus}
       />
     </div>

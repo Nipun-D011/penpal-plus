@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   X,
   Printer,
-  CheckCircle,
+  CheckCircle2,
   Truck,
   Package,
   Clock,
@@ -15,16 +15,21 @@ export const PODetailModal = ({
   purchaseOrder,
   onUpdateStatus,
 }) => {
-  const [localStatus, setLocalStatus] = useState(purchaseOrder?.status || 'Ordered');
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  useEffect(() => {
-    if (purchaseOrder?.status) {
-      setLocalStatus(purchaseOrder.status);
-    }
-  }, [purchaseOrder?.status]);
-
   if (!isOpen || !purchaseOrder) return null;
+
+  return (
+    <PODetailModalContent
+      key={`${purchaseOrder.id}-${purchaseOrder.status || 'open'}`}
+      onClose={onClose}
+      purchaseOrder={purchaseOrder}
+      onUpdateStatus={onUpdateStatus}
+    />
+  );
+};
+
+const PODetailModalContent = ({ onClose, purchaseOrder, onUpdateStatus }) => {
+  const [localStatus, setLocalStatus] = useState(purchaseOrder.status || 'Ordered');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleStatusChange = (newStatus) => {
     setIsUpdating(true);
@@ -34,7 +39,7 @@ export const PODetailModal = ({
         onUpdateStatus(purchaseOrder.id, newStatus);
       }
       setIsUpdating(false);
-    }, 400);
+    }, 300);
   };
 
   const handlePrint = () => {
@@ -55,7 +60,7 @@ export const PODetailModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -76,7 +81,10 @@ export const PODetailModal = ({
                 12 Kurunegala-Puttalam Rd, Kurunegala
               </p>
               <p className="text-xs text-slate-500">
-                Authorized By: <strong className="text-slate-700">{purchaseOrder.orderedBy}</strong>
+                Authorized By:{' '}
+                <strong className="text-slate-700">
+                  {purchaseOrder.orderedBy}
+                </strong>
               </p>
             </div>
 
@@ -97,14 +105,14 @@ export const PODetailModal = ({
           </div>
 
           {/* Stepper Status Progression */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-[#dfa84a]" />
                 Fulfillment & Dispatch Milestones
               </span>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                Current Status: {localStatus}
+                Status: {localStatus}
               </span>
             </div>
 
@@ -114,13 +122,13 @@ export const PODetailModal = ({
                   key={stepItem.step}
                   className={`p-2.5 rounded-lg border text-xs ${
                     stepItem.completed
-                      ? 'bg-white border-emerald-200 text-slate-800'
+                      ? 'bg-white border-emerald-200 text-slate-800 shadow-xs'
                       : 'bg-slate-100/60 border-slate-200 text-slate-400'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 font-bold mb-1">
                     {stepItem.completed ? (
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                     ) : (
                       <span className="w-3.5 h-3.5 rounded-full border border-slate-300 inline-block flex-shrink-0" />
                     )}
@@ -141,7 +149,7 @@ export const PODetailModal = ({
               Itemized Stock Breakdown
             </h4>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                   <tr>
@@ -155,7 +163,7 @@ export const PODetailModal = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {purchaseOrder.items?.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr key={item.id} className="hover:bg-slate-50/70">
                       <td className="py-2.5 px-3 font-medium text-slate-900">
                         {item.name}
                         <span className="block text-[10px] font-mono text-slate-400">
@@ -188,7 +196,10 @@ export const PODetailModal = ({
                 </tbody>
                 <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
                   <tr>
-                    <td colSpan="5" className="py-3 px-3 text-right text-slate-700">
+                    <td
+                      colSpan="5"
+                      className="py-3 px-3 text-right text-slate-700"
+                    >
                       Total PO Value:
                     </td>
                     <td className="py-3 px-3 text-right text-slate-900 font-mono text-sm">
@@ -214,20 +225,20 @@ export const PODetailModal = ({
                 <button
                   type="button"
                   disabled={isUpdating}
-                  onClick={() => handleStatusChange('Confirmed')}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                  onClick={() => handleStatusChange('Processing')}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <CheckCircle className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Acknowledge & Confirm PO</span>
                 </button>
               )}
 
-              {(localStatus === 'Ordered' || localStatus === 'Confirmed') && (
+              {(localStatus === 'Ordered' || localStatus === 'Processing') && (
                 <button
                   type="button"
                   disabled={isUpdating}
-                  onClick={() => handleStatusChange('In Transit')}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                  onClick={() => handleStatusChange('Dispatched')}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Truck className="w-3.5 h-3.5" />
                   <span>Mark as Dispatched / In Transit</span>
@@ -238,8 +249,8 @@ export const PODetailModal = ({
                 <button
                   type="button"
                   disabled={isUpdating}
-                  onClick={() => handleStatusChange('Dispatched Backorder')}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                  onClick={() => handleStatusChange('Dispatched')}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Dispatch Remaining Balance</span>
@@ -248,7 +259,7 @@ export const PODetailModal = ({
 
               {localStatus === 'Fulfilled' && (
                 <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>All items verified & received into Pen Pal Plus inventory.</span>
                 </div>
               )}
@@ -261,7 +272,7 @@ export const PODetailModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-200/60 transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
             Close
           </button>
@@ -269,7 +280,7 @@ export const PODetailModal = ({
           <button
             type="button"
             onClick={handlePrint}
-            className="px-4 py-2 text-xs font-semibold text-[#131d33] bg-[#dfa84a] hover:bg-[#d49e3f] rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-[#131d33] bg-[#dfa84a] hover:bg-[#d49e3f] rounded-lg shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Official PO Document</span>

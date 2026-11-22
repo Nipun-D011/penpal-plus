@@ -1,3 +1,4 @@
+import Card from '../../../components/common/Card';
 import { Package, Truck, DollarSign, CheckCircle2 } from 'lucide-react';
 
 export const SupplierKpiCards = ({
@@ -6,69 +7,66 @@ export const SupplierKpiCards = ({
   totalOutstanding = 'Rs. 38,500',
   lifetimePurchases = 'Rs. 412,000',
 }) => {
-  const cards = [
+  const kpis = [
     {
       title: 'Open Purchase Orders',
       value: openPOCount,
-      subtext: 'Awaiting fulfillment or confirmation',
+      subtext: 'Awaiting dispatch / fulfillment',
       icon: Package,
-      iconBg: 'bg-blue-50 text-blue-700 border-blue-200',
+      iconColor: 'bg-amber-50 text-amber-600 border border-amber-200/60',
     },
     {
-      title: 'In-Transit / Active',
+      title: 'In-Transit Shipments',
       value: inTransitCount,
-      subtext: 'Dispatched to Pen Pal Plus store',
+      subtext: 'Dispatched to Kurunegala store',
       icon: Truck,
-      iconBg: 'bg-amber-50 text-amber-700 border-amber-200',
+      iconColor: 'bg-blue-50 text-blue-600 border border-blue-200/60',
     },
     {
-      title: 'Outstanding Balance Due',
+      title: 'Outstanding Balance',
       value: totalOutstanding,
-      subtext: 'Due from Pen Pal Plus (under credit terms)',
+      subtext: 'Credit term settlement active',
       icon: DollarSign,
-      iconBg: 'bg-red-50 text-red-700 border-red-200',
-      highlight: true,
+      iconColor: 'bg-emerald-50 text-emerald-600 border border-emerald-200/60',
     },
     {
-      title: 'Lifetime Purchases',
+      title: 'Lifetime Volume',
       value: lifetimePurchases,
-      subtext: 'Total stock procurement volume',
+      subtext: 'Total stock procurement to date',
       icon: CheckCircle2,
-      iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      iconColor: 'bg-slate-100 text-slate-700 border border-slate-200/80',
     },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card, idx) => {
-        const Icon = card.icon;
+      {kpis.map((kpi, idx) => {
+        const Icon = kpi.icon;
         return (
-          <div
+          <Card
             key={idx}
-            className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3"
+            className="flex flex-col justify-between hover:shadow-md transition-all border border-slate-200/80 rounded-2xl p-5 bg-white"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {card.title}
+            <div className="flex items-start justify-between">
+              <span className="text-xs font-medium text-slate-500">
+                {kpi.title}
               </span>
               <div
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center ${card.iconBg}`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${kpi.iconColor}`}
               >
                 <Icon className="w-4 h-4" />
               </div>
             </div>
 
-            <div>
-              <div
-                className={`text-xl sm:text-2xl font-bold font-mono tracking-tight ${
-                  card.highlight ? 'text-amber-600' : 'text-slate-900'
-                }`}
-              >
-                {card.value}
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">{card.subtext}</p>
+            <div className="mt-3">
+              <h3 className="font-serif font-bold text-2xl lg:text-[26px] text-slate-900 tracking-tight leading-none">
+                {kpi.value}
+              </h3>
+              <p className="mt-2 text-xs text-slate-500 font-normal">
+                {kpi.subtext}
+              </p>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

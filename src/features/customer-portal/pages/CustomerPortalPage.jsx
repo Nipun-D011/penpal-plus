@@ -3,6 +3,7 @@ import CustomerHeader from '../components/CustomerHeader';
 import CustomerLiveTracker from '../components/CustomerLiveTracker';
 import CustomerOrdersList from '../components/CustomerOrdersList';
 import CustomerReceiptModal from '../components/CustomerReceiptModal';
+import Card from '../../../components/common/Card';
 import {
   mockPortalCustomers,
   mockCustomerOrders,
@@ -12,18 +13,21 @@ import { subscribeToCustomers } from '../../../services/customerService';
 import { subscribeToOrders, getStatusStep } from '../../../services/orderService';
 import { subscribeToPrintJobs } from '../../../services/printJobService';
 import { subscribeToInvoices } from '../../../services/billingService';
+import { useAuth } from '../../../context/AuthContext';
 import {
   FileText,
-  User,
   Phone,
   Mail,
   MapPin,
   Award,
+  Package,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 
 export const CustomerPortalPage = () => {
+  const { user } = useAuth();
   const [customersList, setCustomersList] = useState(mockPortalCustomers);
-  const [activeCustomerId, setActiveCustomerId] = useState(mockPortalCustomers[0]?.id);
   const [activeTab, setActiveTab] = useState('tracking'); // 'tracking', 'history', 'invoices', 'profile'
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
@@ -48,7 +52,7 @@ export const CustomerPortalPage = () => {
           totalOrders: c.ordersCount || 0,
           totalSpent: c.totalSpent || 'Rs. 0',
           avatarInitials: c.initials || 'CP',
-          avatarBg: c.avatarBg || 'bg-emerald-700',
+          avatarBg: c.avatarBg || 'bg-[#dfa84a] text-[#131d33]',
         }));
         setCustomersList(mapped);
       }
@@ -67,12 +71,16 @@ export const CustomerPortalPage = () => {
   }, []);
 
   const activeCustomer = useMemo(() => {
-    return (
-      customersList.find((c) => c.id === activeCustomerId) ||
-      customersList[0] ||
-      mockPortalCustomers[0]
-    );
-  }, [customersList, activeCustomerId]);
+    if (user?.role === 'Customer' && user?.id) {
+      const match = customersList.find(
+        (c) =>
+          c.id === user.id ||
+          (user.email && c.email?.toLowerCase() === user.email.toLowerCase())
+      );
+      if (match) return match;
+    }
+    return customersList[0] || mockPortalCustomers[0];
+  }, [customersList, user]);
 
   // Combine live orders and print jobs into unified portal format
   const allPortalOrders = useMemo(() => {
@@ -95,52 +103,134 @@ export const CustomerPortalPage = () => {
         pickupLocation: 'Main Counter, Pen Pal Plus - Kurunegala',
         notes: o.notes || 'In-store collection',
         items: o.items || [
-          { id: 1, name: o.jobType || 'Stationery Order', qty: o.qty || 1, unitPrice: o.amount, total: o.amount },
+          {
+            id: 1,
+            name: o.jobType || 'Stationery Order',
+            qty: o.qty || 1,
+            unitPrice: o.amount,
+            total: o.amount,
+          },
         ],
         timeline: [
-          { step: 1, title: 'Order Placed', time: o.date || 'Today', desc: 'Received & verified by shop', completed: true },
-          { step: 2, title: 'Processing', time: 'In progress', desc: 'Items being processed', completed: step >= 2, current: step === 2 },
-          { step: 3, title: 'Ready for Collection', time: o.dueDate || 'Pending', desc: 'Package prepared at counter', completed: step >= 3, current: step === 3 },
-          { step: 4, title: 'Delivered', time: 'Completed', desc: 'Collected by customer', completed: step >= 4 },
+          {
+            step: 1,
+            title: 'Order Placed',
+            time: o.date || 'Today, 09:30 AM',
+            desc: 'Order received & queued into store system',
+            completed: true,
+          },
+          {
+            step: 2,
+            title: 'Processing Items',
+            time: step >= 2 ? 'In progress' : 'Pending',
+            desc: 'Packing stock & quality verification',
+            completed: step >= 2,
+            current: step === 2,
+          },
+          {
+            step: 3,
+            title: 'Ready for Collection',
+            time: step >= 3 ? 'Ready now' : o.dueDate || 'Today, 04:00 PM',
+            desc: 'Packaged & waiting at main counter',
+            completed: step >= 3,
+            current: step === 3,
+          },
+          {
+            step: 4,
+            title: 'Completed',
+            time: step >= 4 ? 'Collected' : 'Pending',
+            desc: 'Collected by customer',
+            completed: step >= 4,
+            current: step === 4,
+          },
         ],
       });
     });
 
-    // Map printing jobs
+    // Map print jobs
     livePrintJobs.forEach((j) => {
-      let step = 1;
-      const statusLower = (j.status || '').toLowerCase();
-      if (statusLower === 'prepress' || statusLower === 'scanning') step = 2;
-      else if (statusLower === 'printing' || statusLower === 'in-progress') step = 2;
-      else if (statusLower === 'ready') step = 3;
-      else if (statusLower === 'completed' || statusLower === 'delivered') step = 4;
+      let statusText = 'Processing';
+      let step = 2;
+      if (j.status === 'pending') {
+        statusText = 'Queued';
+        step = 1;
+      } else if (j.status === 'prepress') {
+        statusText = 'Prepress / Proofing';
+        step = 2;
+      } else if (j.status === 'printing') {
+        statusText = 'Printing Active';
+        step = 2;
+      } else if (j.status === 'ready') {
+        statusText = 'Ready for Collection';
+        step = 3;
+      } else if (j.status === 'completed') {
+        statusText = 'Completed';
+        step = 4;
+      }
 
       combined.push({
         id: j.id,
         customerId: j.customerId || 'cust-1',
         customerName: j.customer,
-        type: 'Print Job Order',
-        orderDate: j.date || 'Recent',
-        estimatedReady: j.timing || 'Due Soon',
-        status: j.status || 'In Progress',
+        type: `Print Job (${j.jobType || 'Press'})`,
+        orderDate: 'Aug 2026',
+        estimatedReady: j.timing || 'Ready Today',
+        status: statusText,
         statusStep: step,
         totalAmount: j.amount || 'Rs. 0',
         paymentStatus: 'Paid in Full',
-        pickupLocation: 'Printing Press Counter #2, Kurunegala',
-        notes: j.title || 'Print Job',
+        pickupLocation: 'Press Counter, Pen Pal Plus - Kurunegala',
+        notes: `Assigned operator: ${j.staff || 'Senior Staff'} · ${j.jobType || 'Printing'}`,
         items: [
-          { id: 1, name: j.title || 'Printing service', qty: 1, unitPrice: j.amount, total: j.amount },
+          {
+            id: 1,
+            name: j.title,
+            qty: 1,
+            unitPrice: j.amount,
+            total: j.amount,
+          },
         ],
         timeline: [
-          { step: 1, title: 'Job Order Placed', time: 'Logged', desc: 'Artwork submitted', completed: true },
-          { step: 2, title: 'Printing / Prepress', time: 'In progress', desc: 'Machine in production', completed: step >= 2, current: step === 2 },
-          { step: 3, title: 'Ready for Collection', time: j.timing || 'Soon', desc: 'Ready at counter #2', completed: step >= 3, current: step === 3 },
-          { step: 4, title: 'Collected', time: 'Completed', desc: 'Finished and handed over', completed: step >= 4 },
+          {
+            step: 1,
+            title: 'Job Ticket Received',
+            time: '19 Aug, 08:30 AM',
+            desc: 'Artwork & paper specs verified',
+            completed: true,
+          },
+          {
+            step: 2,
+            title: 'Press Production',
+            time: step >= 2 ? 'In production' : 'Pending',
+            desc: 'High-speed printing & binding underway',
+            completed: step >= 2,
+            current: step === 2,
+          },
+          {
+            step: 3,
+            title: 'Ready for Collection',
+            time: step >= 3 ? 'Ready now' : j.timing || 'Today',
+            desc: 'Packaged & inspected at press counter',
+            completed: step >= 3,
+            current: step === 3,
+          },
+          {
+            step: 4,
+            title: 'Completed',
+            time: step >= 4 ? 'Collected' : 'Pending',
+            desc: 'Job handed over to customer',
+            completed: step >= 4,
+            current: step === 4,
+          },
         ],
       });
     });
 
-    return combined.length > 0 ? combined : mockCustomerOrders;
+    if (combined.length === 0) {
+      return mockCustomerOrders;
+    }
+
+    return combined;
   }, [liveOrders, livePrintJobs]);
 
   // Orders specifically for this customer
@@ -148,9 +238,13 @@ export const CustomerPortalPage = () => {
     const filtered = allPortalOrders.filter(
       (o) =>
         o.customerId === activeCustomer.id ||
-        (o.customerName && activeCustomer.name && o.customerName.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+        (o.customerName &&
+          activeCustomer.name &&
+          o.customerName.toLowerCase().includes(activeCustomer.name.toLowerCase()))
     );
-    return filtered.length > 0 ? filtered : mockCustomerOrders.filter((o) => o.customerId === 'cust-1');
+    return filtered.length > 0
+      ? filtered
+      : mockCustomerOrders.filter((o) => o.customerId === 'cust-1');
   }, [allPortalOrders, activeCustomer]);
 
   // Invoices specifically for this customer
@@ -158,7 +252,9 @@ export const CustomerPortalPage = () => {
     const liveFiltered = liveInvoices.filter(
       (inv) =>
         inv.customerId === activeCustomer.id ||
-        (inv.customer && activeCustomer.name && inv.customer.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+        (inv.customer &&
+          activeCustomer.name &&
+          inv.customer.toLowerCase().includes(activeCustomer.name.toLowerCase()))
     );
 
     if (liveFiltered.length > 0) {
@@ -184,6 +280,12 @@ export const CustomerPortalPage = () => {
 
   const activeOrdersCount = customerOrders.filter(
     (o) => o.status !== 'Delivered' && o.status !== 'Completed'
+  ).length;
+
+  const readyOrdersCount = customerOrders.filter(
+    (o) =>
+      o.status?.toLowerCase().includes('ready') ||
+      o.statusStep === 3
   ).length;
 
   const handleOpenReceipt = (orderOrInv) => {
@@ -213,15 +315,43 @@ export const CustomerPortalPage = () => {
     setReceiptModalOpen(true);
   };
 
+  // 4 KPI Summary Cards matching DashboardPage
+  const kpiCards = [
+    {
+      title: 'Active Orders',
+      value: activeOrdersCount,
+      subtext: 'In production or processing',
+      icon: Package,
+      iconColor: 'bg-amber-50 text-amber-600 border border-amber-200/60',
+    },
+    {
+      title: 'Ready for Collection',
+      value: readyOrdersCount,
+      subtext: 'Available at main counter',
+      icon: CheckCircle2,
+      iconColor: 'bg-emerald-50 text-emerald-600 border border-emerald-200/60',
+    },
+    {
+      title: 'Total Orders Placed',
+      value: activeCustomer.totalOrders || customerOrders.length,
+      subtext: 'Lifetime order history',
+      icon: Clock,
+      iconColor: 'bg-blue-50 text-blue-600 border border-blue-200/60',
+    },
+    {
+      title: 'Membership Tier',
+      value: activeCustomer.loyaltyTier || 'Gold Member',
+      subtext: activeCustomer.memberSince || 'Active customer',
+      icon: Award,
+      iconColor: 'bg-amber-50 text-[#dfa84a] border border-[#dfa84a]/30',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col">
       {/* Branded Customer Header */}
       <CustomerHeader
         activeCustomer={activeCustomer}
-        customers={customersList}
-        onSelectCustomer={(c) => {
-          setActiveCustomerId(c.id);
-        }}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         activeOrderCount={activeOrdersCount}
@@ -229,44 +359,56 @@ export const CustomerPortalPage = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-slate-900 to-[#131d33] rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Clean Enterprise Welcome Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs bg-[#dfa84a] text-[#131d33] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
-                {activeCustomer.loyaltyTier}
-              </span>
-              <span className="text-xs text-slate-400">
-                Member since {activeCustomer.memberSince}
-              </span>
-            </div>
-            <h1 className="text-2xl font-serif font-bold text-white tracking-tight">
+            <h1 className="text-2xl lg:text-[26px] font-serif font-bold text-slate-900 tracking-tight leading-tight">
               Welcome, {activeCustomer.name}
             </h1>
-            <p className="text-xs text-slate-300 mt-1 max-w-xl">
-              Track your active printing jobs and bookshop orders in real-time, view itemized charges, and download official receipts.
+            <p className="text-xs text-slate-500 font-normal mt-0.5">
+              Live tracking for printing jobs, bookshop retail orders, and official invoices
             </p>
           </div>
 
-          <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-xs flex-shrink-0">
-            <div className="text-right">
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Active Orders
-              </span>
-              <span className="text-lg font-bold text-white font-mono">
-                {activeOrdersCount}
-              </span>
-            </div>
-            <div className="h-8 w-px bg-white/20" />
-            <div className="text-left">
-              <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Total Orders Placed
-              </span>
-              <span className="text-lg font-bold text-[#dfa84a] font-mono">
-                {activeCustomer.totalOrders}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{activeCustomer.loyaltyTier || 'Verified Customer'}</span>
+            </span>
           </div>
+        </div>
+
+        {/* 4 KPI Summary Cards matching DashboardPage */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpiCards.map((kpi, idx) => {
+            const Icon = kpi.icon;
+            return (
+              <Card
+                key={idx}
+                className="flex flex-col justify-between hover:shadow-md transition-all border border-slate-200/80 rounded-2xl p-5 bg-white"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-xs font-medium text-slate-500">
+                    {kpi.title}
+                  </span>
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${kpi.iconColor}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <h3 className="font-serif font-bold text-2xl lg:text-[26px] text-slate-900 tracking-tight leading-none truncate">
+                    {kpi.value}
+                  </h3>
+                  <p className="mt-2 text-xs text-slate-500 font-normal truncate">
+                    {kpi.subtext}
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Dynamic Tab Views */}
@@ -336,7 +478,7 @@ export const CustomerPortalPage = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenReceipt(inv)}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                        className="text-xs font-semibold text-[#dfa84a] hover:text-[#c9933b] hover:underline cursor-pointer"
                       >
                         View receipt
                       </button>
@@ -349,10 +491,10 @@ export const CustomerPortalPage = () => {
         )}
 
         {activeTab === 'profile' && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-2xl">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-3xl">
             <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
               <div
-                className={`w-14 h-14 rounded-2xl ${activeCustomer.avatarBg} text-white flex items-center justify-center font-bold text-xl shadow-md`}
+                className={`w-14 h-14 rounded-2xl ${activeCustomer.avatarBg} flex items-center justify-center font-bold text-xl shadow-md`}
               >
                 {activeCustomer.avatarInitials}
               </div>
@@ -360,22 +502,19 @@ export const CustomerPortalPage = () => {
                 <h2 className="text-xl font-bold text-slate-900 font-serif">
                   {activeCustomer.name}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Customer ID: {activeCustomer.id} · {activeCustomer.loyaltyTier}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="bg-[#dfa84a]/15 text-[#c9933b] font-semibold text-[10px] px-2 py-0.5 rounded-md border border-[#dfa84a]/30 uppercase tracking-wider">
+                    {activeCustomer.loyaltyTier}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    Member since {activeCustomer.memberSince}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 text-xs text-slate-700">
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-semibold text-slate-900 block">Full Name</span>
-                    <span className="text-slate-600">{activeCustomer.name}</span>
-                  </div>
-                </div>
-
                 <div className="flex items-start gap-3">
                   <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
@@ -397,7 +536,7 @@ export const CustomerPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Delivery Address</span>
+                    <span className="font-semibold text-slate-900 block">Pickup City / Area</span>
                     <span className="text-slate-600">{activeCustomer.address}</span>
                   </div>
                 </div>
@@ -405,8 +544,10 @@ export const CustomerPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <Award className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Membership Tier</span>
-                    <span className="text-slate-600">{activeCustomer.loyaltyTier}</span>
+                    <span className="font-semibold text-slate-900 block">Total Lifetime Volume</span>
+                    <span className="text-slate-600">
+                      {activeCustomer.totalOrders} Orders · {activeCustomer.totalSpent}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -415,7 +556,7 @@ export const CustomerPortalPage = () => {
         )}
       </main>
 
-      {/* Printable Receipt Modal */}
+      {/* Digital Receipt Modal */}
       <CustomerReceiptModal
         isOpen={receiptModalOpen}
         onClose={() => setReceiptModalOpen(false)}
