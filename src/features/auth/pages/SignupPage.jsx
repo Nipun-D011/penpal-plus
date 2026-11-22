@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import SignupForm from '../components/SignupForm';
@@ -6,14 +5,21 @@ import { useAuth } from '../../../context/AuthContext';
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { signup } = useAuth();
 
   const handleSignup = async (formData) => {
     try {
-      await login(formData);
-      navigate('/dashboard');
+      const user = await signup(formData);
+      if (user?.role === 'Customer') {
+        navigate('/portal/orders');
+      } else if (user?.role === 'Supplier') {
+        navigate('/supplier/portal');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Registration error:', error);
+      throw error;
     }
   };
 

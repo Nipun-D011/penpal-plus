@@ -37,17 +37,33 @@ export const LoginForm = ({ onSubmit, onGoogleSignIn, onForgotPassword, onRegist
         alert(`Signed in successfully as ${identifier}`);
       }
     } catch (err) {
-      setErrors({ form: err.message || 'Failed to sign in. Please check credentials.' });
+      let msg = err.message || 'Failed to sign in. Please check credentials.';
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found'
+      ) {
+        msg = 'Invalid email or password. Please verify your credentials.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Too many failed login attempts. Please wait a moment and try again.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Please enter a valid email address.';
+      }
+      setErrors({ form: msg });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleAuth = async () => {
-    if (onGoogleSignIn) {
-      onGoogleSignIn();
-    } else {
-      alert('Google authentication triggered');
+    try {
+      if (onGoogleSignIn) {
+        await onGoogleSignIn();
+      } else {
+        alert('Google authentication triggered');
+      }
+    } catch (err) {
+      setErrors({ form: err.message || 'Google authentication failed.' });
     }
   };
 

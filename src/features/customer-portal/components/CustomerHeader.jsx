@@ -16,10 +16,12 @@ import { mockPortalCustomers } from '../data/mockCustomerPortalData';
 export const CustomerHeader = ({
   activeCustomer,
   onSelectCustomer,
+  customers = [],
   activeTab,
   onTabChange,
   activeOrderCount = 1,
 }) => {
+  const customerList = customers && customers.length > 0 ? customers : mockPortalCustomers;
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -101,7 +103,7 @@ export const CustomerHeader = ({
                     Switch Test Customer
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
-                    {mockPortalCustomers.map((cust) => (
+                    {customerList.map((cust) => (
                       <button
                         key={cust.id}
                         type="button"

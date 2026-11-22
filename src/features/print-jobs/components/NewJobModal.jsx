@@ -26,9 +26,12 @@ export const NewJobModal = ({
     e.preventDefault();
     const newErrors = {};
 
+    const cleanAmount = String(amount).replace(/[^0-9.]/g, '');
+    const numAmount = parseFloat(cleanAmount);
+
     if (!title.trim()) newErrors.title = 'Job title/description is required';
     if (!customer.trim()) newErrors.customer = 'Customer name is required';
-    if (!amount.trim()) newErrors.amount = 'Amount is required';
+    if (!cleanAmount || isNaN(numAmount)) newErrors.amount = 'Valid amount is required';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -42,7 +45,7 @@ export const NewJobModal = ({
       customer: customer.trim(),
       status,
       timing: timing.trim() || 'Due today',
-      amount: amount.startsWith('Rs.') ? amount.trim() : `Rs. ${amount.trim()}`,
+      amount: `Rs. ${numAmount.toLocaleString()}`,
       staff,
       jobType,
     };

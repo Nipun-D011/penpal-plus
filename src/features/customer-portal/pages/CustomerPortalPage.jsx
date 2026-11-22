@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import CustomerHeader from '../components/CustomerHeader';
 import CustomerLiveTracker from '../components/CustomerLiveTracker';
 import CustomerOrdersList from '../components/CustomerOrdersList';
@@ -8,6 +8,10 @@ import {
   mockCustomerOrders,
   mockCustomerInvoices,
 } from '../data/mockCustomerPortalData';
+import { subscribeToCustomers } from '../../../services/customerService';
+import { subscribeToOrders, getStatusStep } from '../../../services/orderService';
+import { subscribeToPrintJobs } from '../../../services/printJobService';
+import { subscribeToInvoices } from '../../../services/billingService';
 import {
   FileText,
   User,
@@ -18,29 +22,173 @@ import {
 } from 'lucide-react';
 
 export const CustomerPortalPage = () => {
-  const [activeCustomer, setActiveCustomer] = useState(mockPortalCustomers[0]);
+  const [customersList, setCustomersList] = useState(mockPortalCustomers);
+  const [activeCustomerId, setActiveCustomerId] = useState(mockPortalCustomers[0]?.id);
   const [activeTab, setActiveTab] = useState('tracking'); // 'tracking', 'history', 'invoices', 'profile'
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
+  const [liveOrders, setLiveOrders] = useState([]);
+  const [livePrintJobs, setLivePrintJobs] = useState([]);
+  const [liveInvoices, setLiveInvoices] = useState([]);
+
+  // Subscribe to live Firestore collections
+  useEffect(() => {
+    const unsubCustomers = subscribeToCustomers((data) => {
+      if (data && data.length > 0) {
+        const mapped = data.map((c) => ({
+          ...c,
+          id: c.id,
+          name: c.name,
+          email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+          phone: c.phone || '077 233 1190',
+          address: c.city ? `Kurunegala (${c.city})` : 'Kurunegala',
+          memberSince: c.customerSince ? `Since ${c.customerSince}` : 'March 2023',
+          loyaltyTier: c.ordersCount > 15 ? 'Gold Member' : 'Regular Customer',
+          totalOrders: c.ordersCount || 0,
+          totalSpent: c.totalSpent || 'Rs. 0',
+          avatarInitials: c.initials || 'CP',
+          avatarBg: c.avatarBg || 'bg-emerald-700',
+        }));
+        setCustomersList(mapped);
+      }
+    });
+
+    const unsubOrders = subscribeToOrders((data) => setLiveOrders(data || []));
+    const unsubJobs = subscribeToPrintJobs((data) => setLivePrintJobs(data || []));
+    const unsubInvoices = subscribeToInvoices((data) => setLiveInvoices(data || []));
+
+    return () => {
+      unsubCustomers();
+      unsubOrders();
+      unsubJobs();
+      unsubInvoices();
+    };
+  }, []);
+
+  const activeCustomer = useMemo(() => {
+    return (
+      customersList.find((c) => c.id === activeCustomerId) ||
+      customersList[0] ||
+      mockPortalCustomers[0]
+    );
+  }, [customersList, activeCustomerId]);
+
+  // Combine live orders and print jobs into unified portal format
+  const allPortalOrders = useMemo(() => {
+    const combined = [];
+
+    // Map store customer orders
+    liveOrders.forEach((o) => {
+      const step = getStatusStep(o.status);
+      combined.push({
+        id: o.id,
+        customerId: o.customerId || 'cust-1',
+        customerName: o.customer || o.customerName,
+        type: o.jobType || 'Book & Stationery Order',
+        orderDate: o.date || 'Today',
+        estimatedReady: o.dueDate || 'Ready Today',
+        status: o.status || 'Processing',
+        statusStep: step,
+        totalAmount: o.amount || 'Rs. 0',
+        paymentStatus: o.paymentStatus || 'Paid',
+        pickupLocation: 'Main Counter, Pen Pal Plus - Kurunegala',
+        notes: o.notes || 'In-store collection',
+        items: o.items || [
+          { id: 1, name: o.jobType || 'Stationery Order', qty: o.qty || 1, unitPrice: o.amount, total: o.amount },
+        ],
+        timeline: [
+          { step: 1, title: 'Order Placed', time: o.date || 'Today', desc: 'Received & verified by shop', completed: true },
+          { step: 2, title: 'Processing', time: 'In progress', desc: 'Items being processed', completed: step >= 2, current: step === 2 },
+          { step: 3, title: 'Ready for Collection', time: o.dueDate || 'Pending', desc: 'Package prepared at counter', completed: step >= 3, current: step === 3 },
+          { step: 4, title: 'Delivered', time: 'Completed', desc: 'Collected by customer', completed: step >= 4 },
+        ],
+      });
+    });
+
+    // Map printing jobs
+    livePrintJobs.forEach((j) => {
+      let step = 1;
+      const statusLower = (j.status || '').toLowerCase();
+      if (statusLower === 'prepress' || statusLower === 'scanning') step = 2;
+      else if (statusLower === 'printing' || statusLower === 'in-progress') step = 2;
+      else if (statusLower === 'ready') step = 3;
+      else if (statusLower === 'completed' || statusLower === 'delivered') step = 4;
+
+      combined.push({
+        id: j.id,
+        customerId: j.customerId || 'cust-1',
+        customerName: j.customer,
+        type: 'Print Job Order',
+        orderDate: j.date || 'Recent',
+        estimatedReady: j.timing || 'Due Soon',
+        status: j.status || 'In Progress',
+        statusStep: step,
+        totalAmount: j.amount || 'Rs. 0',
+        paymentStatus: 'Paid in Full',
+        pickupLocation: 'Printing Press Counter #2, Kurunegala',
+        notes: j.title || 'Print Job',
+        items: [
+          { id: 1, name: j.title || 'Printing service', qty: 1, unitPrice: j.amount, total: j.amount },
+        ],
+        timeline: [
+          { step: 1, title: 'Job Order Placed', time: 'Logged', desc: 'Artwork submitted', completed: true },
+          { step: 2, title: 'Printing / Prepress', time: 'In progress', desc: 'Machine in production', completed: step >= 2, current: step === 2 },
+          { step: 3, title: 'Ready for Collection', time: j.timing || 'Soon', desc: 'Ready at counter #2', completed: step >= 3, current: step === 3 },
+          { step: 4, title: 'Collected', time: 'Completed', desc: 'Finished and handed over', completed: step >= 4 },
+        ],
+      });
+    });
+
+    return combined.length > 0 ? combined : mockCustomerOrders;
+  }, [liveOrders, livePrintJobs]);
+
   // Orders specifically for this customer
-  const customerOrders = mockCustomerOrders.filter(
-    (o) => o.customerId === activeCustomer.id
-  );
+  const customerOrders = useMemo(() => {
+    const filtered = allPortalOrders.filter(
+      (o) =>
+        o.customerId === activeCustomer.id ||
+        (o.customerName && activeCustomer.name && o.customerName.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+    );
+    return filtered.length > 0 ? filtered : mockCustomerOrders.filter((o) => o.customerId === 'cust-1');
+  }, [allPortalOrders, activeCustomer]);
 
   // Invoices specifically for this customer
-  const customerInvoices = mockCustomerInvoices.filter(
-    (inv) => inv.customerId === activeCustomer.id
-  );
+  const customerInvoices = useMemo(() => {
+    const liveFiltered = liveInvoices.filter(
+      (inv) =>
+        inv.customerId === activeCustomer.id ||
+        (inv.customer && activeCustomer.name && inv.customer.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+    );
+
+    if (liveFiltered.length > 0) {
+      return liveFiltered.map((inv) => ({
+        id: inv.invoiceNumber || inv.id,
+        customerId: activeCustomer.id,
+        orderRef: inv.orderRef || 'INV-REF',
+        date: inv.date || 'Today',
+        amount: inv.amount || `Rs. ${inv.numericAmount || inv.totalDue || 0}`,
+        paymentMethod: inv.paymentMethod || 'Cash',
+        status: inv.status || 'Paid',
+        items: (inv.items || []).map((it) => ({
+          name: it.description || 'Service',
+          qty: it.qty || 1,
+          rate: `Rs. ${it.rate || 0}`,
+          total: `Rs. ${it.amount || 0}`,
+        })),
+      }));
+    }
+
+    return mockCustomerInvoices.filter((inv) => inv.customerId === 'cust-1');
+  }, [liveInvoices, activeCustomer]);
 
   const activeOrdersCount = customerOrders.filter(
     (o) => o.status !== 'Delivered' && o.status !== 'Completed'
   ).length;
 
   const handleOpenReceipt = (orderOrInv) => {
-    // Normalize into order structure if it's an invoice
     if (orderOrInv.orderRef) {
-      const match = mockCustomerOrders.find((o) => o.id === orderOrInv.orderRef);
+      const match = allPortalOrders.find((o) => o.id === orderOrInv.orderRef);
       if (match) {
         setSelectedReceiptOrder(match);
       } else {
@@ -49,13 +197,14 @@ export const CustomerPortalPage = () => {
           orderDate: orderOrInv.date,
           totalAmount: orderOrInv.amount,
           paymentStatus: orderOrInv.status === 'Paid' ? 'Paid in Full' : 'Pending',
-          items: orderOrInv.items?.map((it, i) => ({
-            id: i,
-            name: it.name,
-            qty: it.qty,
-            unitPrice: it.rate,
-            total: it.total,
-          })) || [],
+          items:
+            orderOrInv.items?.map((it, i) => ({
+              id: i,
+              name: it.name,
+              qty: it.qty,
+              unitPrice: it.rate,
+              total: it.total,
+            })) || [],
         });
       }
     } else {
@@ -69,8 +218,9 @@ export const CustomerPortalPage = () => {
       {/* Branded Customer Header */}
       <CustomerHeader
         activeCustomer={activeCustomer}
+        customers={customersList}
         onSelectCustomer={(c) => {
-          setActiveCustomer(c);
+          setActiveCustomerId(c.id);
         }}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -101,19 +251,19 @@ export const CustomerPortalPage = () => {
           <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-xs flex-shrink-0">
             <div className="text-right">
               <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Total Orders
+                Active Orders
               </span>
               <span className="text-lg font-bold text-white font-mono">
-                {activeCustomer.totalOrders}
+                {activeOrdersCount}
               </span>
             </div>
             <div className="h-8 w-px bg-white/20" />
             <div className="text-left">
               <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Total Spent
+                Total Orders Placed
               </span>
               <span className="text-lg font-bold text-[#dfa84a] font-mono">
-                {activeCustomer.totalSpent}
+                {activeCustomer.totalOrders}
               </span>
             </div>
           </div>
@@ -123,7 +273,7 @@ export const CustomerPortalPage = () => {
         {activeTab === 'tracking' && (
           <CustomerLiveTracker
             orders={customerOrders}
-            allOrders={mockCustomerOrders}
+            allOrders={allPortalOrders}
             onOpenReceipt={handleOpenReceipt}
           />
         )}
@@ -131,184 +281,133 @@ export const CustomerPortalPage = () => {
         {activeTab === 'history' && (
           <CustomerOrdersList
             orders={customerOrders}
-            onSelectOrder={(order) => {
-              setActiveTab('tracking');
-            }}
+            onSelectOrder={() => setActiveTab('tracking')}
             onOpenReceipt={handleOpenReceipt}
           />
         )}
 
         {activeTab === 'invoices' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">
-                  Invoices & Digital Receipts
+                <h3 className="font-semibold text-slate-900 text-sm">
+                  Official Invoices & Tax Receipts
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Official invoices for all completed and active transactions
+                  Showing invoices generated for {activeCustomer.name}
                 </p>
               </div>
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                {customerInvoices.length} Invoices Available
-              </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4">Invoice No</th>
-                    <th className="py-3 px-4">Order Ref</th>
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">Items</th>
-                    <th className="py-3 px-4">Payment Method</th>
-                    <th className="py-3 px-4 text-right">Amount</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-center">Receipt</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {customerInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                        {inv.id}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-600">
-                        {inv.orderRef}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500">{inv.date}</td>
-                      <td className="py-3 px-4 text-slate-600">
-                        {inv.items?.map((it) => it.name).join(', ')}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600">{inv.paymentMethod}</td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+            <div className="divide-y divide-slate-100">
+              {customerInvoices.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  No invoices available yet.
+                </div>
+              ) : (
+                customerInvoices.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/70 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-5 h-5 text-amber-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs sm:text-sm text-slate-900">
+                            {inv.id}
+                          </span>
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
+                            {inv.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {inv.date} · {inv.paymentMethod} · Ref: {inv.orderRef}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4 pl-13 sm:pl-0">
+                      <span className="font-bold text-sm text-slate-900 font-mono">
                         {inv.amount}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                            inv.status === 'Paid'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}
-                        >
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenReceipt(inv)}
-                          className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md font-semibold text-xs flex items-center gap-1 mx-auto transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>View Receipt</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReceipt(inv)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        View receipt
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
 
         {activeTab === 'profile' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Account Details Card */}
-            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-6">
-              <h3 className="font-bold text-slate-900 text-base border-b border-slate-200 pb-3 flex items-center gap-2">
-                <User className="w-4 h-4 text-[#dfa84a]" />
-                Customer Profile & Contact Information
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Full Name / Organization
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm">
-                    {activeCustomer.name}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Primary Phone
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    {activeCustomer.phone}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Registered Email
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5 truncate">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    {activeCustomer.email}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Delivery Address
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                    {activeCustomer.address}
-                  </span>
-                </div>
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-2xl">
+            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
+              <div
+                className={`w-14 h-14 rounded-2xl ${activeCustomer.avatarBg} text-white flex items-center justify-center font-bold text-xl shadow-md`}
+              >
+                {activeCustomer.avatarInitials}
               </div>
-
-              <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl text-xs text-amber-900">
-                <span className="font-bold block mb-1">
-                  💡 Need to update your delivery address or contact number?
-                </span>
-                Please notify our staff at the main counter or call 037 222 1190.
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 font-serif">
+                  {activeCustomer.name}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Customer ID: {activeCustomer.id} · {activeCustomer.loyaltyTier}
+                </p>
               </div>
             </div>
 
-            {/* Loyalty & Stats Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-900 text-base border-b border-slate-200 pb-3 flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-600" />
-                Pen Pal Plus Membership
-              </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 text-xs text-slate-700">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Full Name</span>
+                    <span className="text-slate-600">{activeCustomer.name}</span>
+                  </div>
+                </div>
 
-              <div className="text-center py-4 bg-gradient-to-b from-amber-50/60 to-white rounded-xl border border-amber-200/80 p-4">
-                <div className="w-12 h-12 rounded-full bg-[#dfa84a] text-[#131d33] font-bold flex items-center justify-center mx-auto mb-2 shadow-sm">
-                  {activeCustomer.avatarInitials}
+                <div className="flex items-start gap-3">
+                  <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Phone</span>
+                    <span className="text-slate-600">{activeCustomer.phone}</span>
+                  </div>
                 </div>
-                <div className="font-bold text-slate-900 text-sm">
-                  {activeCustomer.loyaltyTier}
-                </div>
-                <div className="text-xs text-slate-500">
-                  Customer ID: {activeCustomer.id}
+
+                <div className="flex items-start gap-3">
+                  <Mail className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Email Address</span>
+                    <span className="text-slate-600">{activeCustomer.email}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Registered</span>
-                  <span className="font-semibold text-slate-800">
-                    {activeCustomer.memberSince}
-                  </span>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Delivery Address</span>
+                    <span className="text-slate-600">{activeCustomer.address}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Total Orders</span>
-                  <span className="font-semibold text-slate-800">
-                    {activeCustomer.totalOrders} Completed
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-slate-500">Cumulative Spend</span>
-                  <span className="font-semibold text-slate-900 font-mono">
-                    {activeCustomer.totalSpent}
-                  </span>
+
+                <div className="flex items-start gap-3">
+                  <Award className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Membership Tier</span>
+                    <span className="text-slate-600">{activeCustomer.loyaltyTier}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -316,12 +415,11 @@ export const CustomerPortalPage = () => {
         )}
       </main>
 
-      {/* Digital Receipt Modal */}
+      {/* Printable Receipt Modal */}
       <CustomerReceiptModal
         isOpen={receiptModalOpen}
         onClose={() => setReceiptModalOpen(false)}
         order={selectedReceiptOrder}
-        customer={activeCustomer}
       />
     </div>
   );

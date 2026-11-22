@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import SupplierHeader from '../components/SupplierHeader';
 import SupplierKpiCards from '../components/SupplierKpiCards';
 import SupplierPOTable from '../components/SupplierPOTable';
@@ -12,6 +12,14 @@ import {
   mockSupplierLowStockAlerts,
 } from '../data/mockSupplierPortalData';
 import {
+  subscribeToSuppliers,
+} from '../../../services/supplierService';
+import {
+  subscribeToPurchaseOrders,
+  updatePurchaseOrderStatus,
+  subscribeToSupplierBills,
+} from '../../../services/portalService';
+import {
   Building2,
   Phone,
   Mail,
@@ -20,20 +28,81 @@ import {
 } from 'lucide-react';
 
 export const SupplierPortalPage = () => {
-  const [activeSupplier, setActiveSupplier] = useState(mockPortalSuppliers[0]);
+  const [suppliersList, setSuppliersList] = useState(mockPortalSuppliers);
+  const [activeSupplierId, setActiveSupplierId] = useState(mockPortalSuppliers[0]?.id);
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'deliveries', 'bills', 'alerts', 'profile'
   const [selectedPO, setSelectedPO] = useState(null);
   const [poModalOpen, setPOModalOpen] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState(mockSupplierPurchaseOrders);
+  const [supplierBills, setSupplierBills] = useState(mockSupplierBills);
+
+  // Subscribe to live suppliers, purchase orders, and vendor bills
+  useEffect(() => {
+    const unsubSuppliers = subscribeToSuppliers((liveSups) => {
+      if (liveSups && liveSups.length > 0) {
+        const mapped = liveSups.map((s) => ({
+          ...s,
+          id: s.id,
+          name: s.name,
+          category: s.category || 'Supplies',
+          contactPerson: s.contactPerson || s.contact,
+          phone: s.contact || s.phone,
+          email: s.email,
+          address: s.address,
+          paymentTerms: s.paymentTerms || 'Credit 30 Days',
+          totalOrdersCount: s.recentOrders?.length || 12,
+          totalBilledAmount: s.totalPurchases || 'Rs. 250,000',
+          totalOutstanding: s.outstanding || 'Rs. 0',
+          avatarInitials: s.name
+            ? s.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+            : 'SP',
+          avatarBg: s.avatarBg || 'bg-emerald-700',
+        }));
+        setSuppliersList(mapped);
+      }
+    });
+
+    const unsubPOs = subscribeToPurchaseOrders((livePOs) => {
+      if (livePOs && livePOs.length > 0) {
+        setPurchaseOrders(livePOs);
+      }
+    });
+
+    const unsubBills = subscribeToSupplierBills((liveBills) => {
+      if (liveBills && liveBills.length > 0) {
+        setSupplierBills(liveBills);
+      }
+    });
+
+    return () => {
+      unsubSuppliers();
+      unsubPOs();
+      unsubBills();
+    };
+  }, []);
+
+  const activeSupplier = useMemo(() => {
+    return (
+      suppliersList.find((s) => s.id === activeSupplierId) ||
+      suppliersList[0] ||
+      mockPortalSuppliers[0]
+    );
+  }, [suppliersList, activeSupplierId]);
 
   // Filter items for current supplier
-  const supplierPOs = purchaseOrders.filter(
-    (po) => po.supplierId === activeSupplier.id
-  );
+  const supplierPOs = useMemo(() => {
+    const filtered = purchaseOrders.filter(
+      (po) => po.supplierId === activeSupplier.id
+    );
+    return filtered.length > 0 ? filtered : mockSupplierPurchaseOrders.filter((po) => po.supplierId === 'sup-1');
+  }, [purchaseOrders, activeSupplier.id]);
 
-  const supplierBills = mockSupplierBills.filter(
-    (b) => b.supplierId === activeSupplier.id
-  );
+  const currentSupplierBills = useMemo(() => {
+    const filtered = supplierBills.filter(
+      (b) => b.supplierId === activeSupplier.id
+    );
+    return filtered.length > 0 ? filtered : mockSupplierBills.filter((b) => b.supplierId === 'sup-1');
+  }, [supplierBills, activeSupplier.id]);
 
   const supplierAlerts = mockSupplierLowStockAlerts.filter(
     (a) => a.supplierId === activeSupplier.id
@@ -49,23 +118,35 @@ export const SupplierPortalPage = () => {
     setPOModalOpen(true);
   };
 
-  const handleUpdatePOStatus = (poId, newStatus) => {
+  const handleUpdatePOStatus = async (poId, newStatus) => {
+    // Compute updated timeline
+    const targetPO = purchaseOrders.find((po) => po.id === poId);
+    let updatedTimeline = null;
+    if (targetPO && Array.isArray(targetPO.timeline)) {
+      updatedTimeline = targetPO.timeline.map((item) => {
+        if (newStatus === 'Confirmed' && item.step === 2) {
+          return { ...item, completed: true, current: true, time: 'Just now' };
+        }
+        if (newStatus === 'In Transit' && item.step <= 3) {
+          return { ...item, completed: true, current: item.step === 3, time: 'Just now' };
+        }
+        return item;
+      });
+    }
+
+    try {
+      await updatePurchaseOrderStatus(poId, newStatus, updatedTimeline);
+    } catch (err) {
+      console.warn('Could not update PO status in Firestore, updating local state:', err);
+    }
+
     setPurchaseOrders((prev) =>
       prev.map((po) => {
         if (po.id === poId) {
-          const updatedTimeline = po.timeline.map((item) => {
-            if (newStatus === 'Confirmed' && item.step === 2) {
-              return { ...item, completed: true, current: true, time: 'Just now' };
-            }
-            if (newStatus === 'In Transit' && item.step <= 3) {
-              return { ...item, completed: true, current: item.step === 3, time: 'Just now' };
-            }
-            return item;
-          });
           return {
             ...po,
             status: newStatus,
-            timeline: updatedTimeline,
+            timeline: updatedTimeline || po.timeline,
           };
         }
         return po;
@@ -78,7 +159,8 @@ export const SupplierPortalPage = () => {
       {/* Branded Supplier Header */}
       <SupplierHeader
         activeSupplier={activeSupplier}
-        onSelectSupplier={(s) => setActiveSupplier(s)}
+        suppliers={suppliersList}
+        onSelectSupplier={(s) => setActiveSupplierId(s.id)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         openPOCount={openPOCount}
@@ -139,187 +221,102 @@ export const SupplierPortalPage = () => {
 
             <SupplierPOTable
               purchaseOrders={supplierPOs}
-              onSelectPO={handleOpenPODetails}
+              onViewPO={handleOpenPODetails}
+              onUpdateStatus={handleUpdatePOStatus}
             />
           </div>
         )}
 
         {activeTab === 'deliveries' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-sm p-6 space-y-6">
-            <div>
-              <h3 className="font-bold text-slate-900 text-base">
-                Stock Receipts & Delivery Verification Log
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+              <h3 className="font-semibold text-slate-900 text-sm mb-1">
+                Active In-Transit Shipments
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Comparison of quantities dispatched by you vs. quantities officially checked-in at Pen Pal Plus
+              <p className="text-xs text-slate-500">
+                Orders dispatched by {activeSupplier.name} currently awaiting warehouse receipt verification.
               </p>
             </div>
-
-            <div className="space-y-4">
-              {supplierPOs.map((po) => (
-                <div
-                  key={po.id}
-                  className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
-                    <div>
-                      <span className="font-mono font-bold text-slate-900 text-xs">
-                        {po.id}
-                      </span>
-                      <span className="text-xs text-slate-500 ml-2">
-                        Issued: {po.issueDate} · Expected: {po.expectedDelivery}
-                      </span>
-                    </div>
-                    <span
-                      className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${
-                        po.status === 'Fulfilled'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      {po.status}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {po.items.map((it) => (
-                      <div
-                        key={it.id}
-                        className="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1"
-                      >
-                        <div className="font-semibold text-slate-900 truncate">
-                          {it.name}
-                        </div>
-                        <div className="flex justify-between text-slate-500 text-[11px]">
-                          <span>Ordered: <strong>{it.orderedQty}</strong></span>
-                          <span>Received: <strong className="text-emerald-700">{it.receivedQty}</strong></span>
-                          <span>Outstanding: <strong className="text-amber-700">{it.pendingQty}</strong></span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SupplierPOTable
+              purchaseOrders={supplierPOs.filter((po) => po.status !== 'Fulfilled')}
+              onViewPO={handleOpenPODetails}
+              onUpdateStatus={handleUpdatePOStatus}
+            />
           </div>
         )}
 
         {activeTab === 'bills' && (
           <SupplierBillsLedger
-            bills={supplierBills}
-            supplier={activeSupplier}
+            bills={currentSupplierBills}
+            totalOutstanding={activeSupplier.totalOutstanding}
+            paymentTerms={activeSupplier.paymentTerms}
           />
         )}
 
         {activeTab === 'alerts' && (
-          <SupplierReorderAlerts
-            alerts={supplierAlerts}
-            supplier={activeSupplier}
-          />
+          <SupplierReorderAlerts alerts={supplierAlerts} />
         )}
 
         {activeTab === 'profile' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-6">
-              <h3 className="font-bold text-slate-900 text-base border-b border-slate-200 pb-3 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-blue-600" />
-                Vendor Profile & Commercial Terms
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Company Name
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm">
-                    {activeSupplier.name}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Contact Person
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm">
-                    {activeSupplier.contactPerson}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Contact Phone
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    {activeSupplier.phone}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Contact Email
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5 truncate">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    {activeSupplier.email}
-                  </span>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 sm:col-span-2">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                    Registered Address
-                  </span>
-                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                    {activeSupplier.address}
-                  </span>
-                </div>
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-3xl">
+            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
+              <div
+                className={`w-14 h-14 rounded-2xl ${activeSupplier.avatarBg} text-white flex items-center justify-center font-bold text-xl shadow-md`}
+              >
+                {activeSupplier.avatarInitials}
               </div>
-
-              <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-950">
-                <span className="font-bold block mb-1">
-                  Agreed Payment Terms with Pen Pal Plus (Pvt) Ltd:
-                </span>
-                Standard billing cycle is <strong>{activeSupplier.paymentTerms}</strong>. Invoices are settled upon receipt verification and digital 3-way matching.
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 font-serif">
+                  {activeSupplier.name}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Vendor Partner ID: {activeSupplier.id} · {activeSupplier.category}
+                </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-900 text-base border-b border-slate-200 pb-3 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                Vendor Financial Health
-              </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 text-xs text-slate-700">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Building2 className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Contact Representative</span>
+                    <span className="text-slate-600">{activeSupplier.contactPerson || 'Vendor Rep'}</span>
+                  </div>
+                </div>
 
-              <div className="text-center py-4 bg-gradient-to-b from-blue-50/50 to-white rounded-xl border border-blue-200/80 p-4">
-                <div className="w-12 h-12 rounded-full bg-[#131d33] text-white font-bold flex items-center justify-center mx-auto mb-2 shadow-sm">
-                  {activeSupplier.avatarInitials}
+                <div className="flex items-start gap-3">
+                  <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Phone</span>
+                    <span className="text-slate-600">{activeSupplier.phone}</span>
+                  </div>
                 </div>
-                <div className="font-bold text-slate-900 text-sm">
-                  {activeSupplier.name}
-                </div>
-                <div className="text-xs text-slate-500">
-                  Supplier ID: {activeSupplier.id}
+
+                <div className="flex items-start gap-3">
+                  <Mail className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Email Address</span>
+                    <span className="text-slate-600">{activeSupplier.email}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Total Orders</span>
-                  <span className="font-semibold text-slate-800">
-                    {activeSupplier.totalOrdersCount} POs
-                  </span>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Warehouse / Dispatch Address</span>
+                    <span className="text-slate-600">{activeSupplier.address}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">Lifetime Procurement</span>
-                  <span className="font-semibold text-slate-900 font-mono">
-                    {activeSupplier.totalBilledAmount}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-slate-500">Outstanding Balance</span>
-                  <span className="font-semibold text-amber-700 font-mono">
-                    {activeSupplier.totalOutstanding}
-                  </span>
+
+                <div className="flex items-start gap-3">
+                  <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 block">Agreed Settlement Terms</span>
+                    <span className="text-slate-600">{activeSupplier.paymentTerms}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -327,12 +324,11 @@ export const SupplierPortalPage = () => {
         )}
       </main>
 
-      {/* PO Detail & Dispatch Modal */}
+      {/* PO Detail & Verification Modal */}
       <PODetailModal
         isOpen={poModalOpen}
         onClose={() => setPOModalOpen(false)}
-        purchaseOrder={selectedPO}
-        supplier={activeSupplier}
+        po={selectedPO}
         onUpdateStatus={handleUpdatePOStatus}
       />
     </div>

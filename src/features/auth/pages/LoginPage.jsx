@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import LoginForm from '../components/LoginForm';
@@ -6,7 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const handleLogin = async (credentials) => {
     try {
@@ -20,15 +19,23 @@ export const LoginPage = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
-      await login({ identifier: 'aravinda@penpalplus.lk', fullName: 'Aravinda Perera' });
-      navigate('/dashboard');
+      const user = await loginWithGoogle();
+      if (user?.role === 'Customer') {
+        navigate('/portal/orders');
+      } else if (user?.role === 'Supplier') {
+        navigate('/supplier/portal');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Google Sign In error:', error);
+      throw error;
     }
   };
 

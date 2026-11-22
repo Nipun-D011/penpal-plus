@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
@@ -17,8 +17,11 @@ export const NewOrderModal = ({ isOpen, onClose, onAdd }) => {
     e.preventDefault();
     const newErrors = {};
 
+    const cleanAmount = String(amount).replace(/[^0-9.]/g, '');
+    const numAmount = parseFloat(cleanAmount);
+
     if (!customer.trim()) newErrors.customer = 'Customer name is required';
-    if (!amount.trim()) newErrors.amount = 'Total amount is required';
+    if (!cleanAmount || isNaN(numAmount)) newErrors.amount = 'Valid total amount is required';
     if (!itemsSummary.trim()) newErrors.itemsSummary = 'Items description is required';
 
     if (Object.keys(newErrors).length > 0) {
@@ -33,7 +36,7 @@ export const NewOrderModal = ({ isOpen, onClose, onAdd }) => {
       month: 'short',
       year: 'numeric',
     });
-    const formattedAmount = amount.startsWith('Rs.') ? amount.trim() : `Rs. ${amount.trim()}`;
+    const formattedAmount = `Rs. ${numAmount.toLocaleString()}`;
 
     let statusStep = 1;
     if (status === 'Processing') statusStep = 2;

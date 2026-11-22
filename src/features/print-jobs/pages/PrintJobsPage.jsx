@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import PrintJobFilters from '../components/PrintJobFilters';
@@ -12,6 +12,12 @@ import {
   mockJobTypeOptions,
   mockDueOptions,
 } from '../data/mockPrintJobData';
+import {
+  subscribeToPrintJobs,
+  createPrintJob,
+  updatePrintJobStatus,
+  deletePrintJob,
+} from '../../../services/printJobService';
 
 export const PrintJobsPage = () => {
   const [jobs, setJobs] = useState(mockPrintJobs);
@@ -22,26 +28,42 @@ export const PrintJobsPage = () => {
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [viewingJob, setViewingJob] = useState(null);
 
+  // Subscribe to real-time Firestore updates
+  useEffect(() => {
+    const unsubscribe = subscribeToPrintJobs(
+      (firestoreJobs) => {
+        if (firestoreJobs && firestoreJobs.length > 0) {
+          setJobs(firestoreJobs);
+        }
+      },
+      (error) => {
+        console.error('Firestore print jobs subscription error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Filter jobs based on active filters
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
-      // Search matches job ID, customer, or title
       const q = searchQuery.toLowerCase().trim();
+      const id = job.id || '';
+      const customer = job.customer || '';
+      const title = job.title || '';
+
       const matchesSearch =
         !q ||
-        job.id.toLowerCase().includes(q) ||
-        job.customer.toLowerCase().includes(q) ||
-        job.title.toLowerCase().includes(q);
+        id.toLowerCase().includes(q) ||
+        customer.toLowerCase().includes(q) ||
+        title.toLowerCase().includes(q);
 
-      // Staff filter
       const matchesStaff =
         selectedStaff === 'All staff' || job.staff === selectedStaff;
 
-      // Job Type filter
       const matchesType =
         selectedType === 'All job types' || job.jobType === selectedType;
 
-      // Due time filter
       let matchesDue = true;
       if (selectedDue === 'Due today') {
         matchesDue = job.timing?.toLowerCase().includes('today');
@@ -53,36 +75,63 @@ export const PrintJobsPage = () => {
     });
   }, [jobs, searchQuery, selectedStaff, selectedType, selectedDue]);
 
-  // Drag and drop handler
+  // Drag and drop handler with Firestore synchronization
   const handleDragStart = (e, jobId) => {
     e.dataTransfer.setData('text/plain', jobId);
   };
 
-  const handleDropJob = (jobId, targetStatus) => {
+  const handleDropJob = async (jobId, targetStatus) => {
+    // Optimistic UI update
     setJobs((prevJobs) =>
       prevJobs.map((job) =>
         job.id === jobId ? { ...job, status: targetStatus } : job
       )
     );
+
+    try {
+      await updatePrintJobStatus(jobId, targetStatus);
+    } catch (error) {
+      console.error('Failed to update job status in Firestore:', error);
+    }
   };
 
-  const handleAddNewJob = (newJob) => {
-    setJobs((prev) => [newJob, ...prev]);
+  // Add new job with Firestore synchronization
+  const handleAddNewJob = async (newJob) => {
+    try {
+      await createPrintJob(newJob);
+    } catch (error) {
+      console.error('Failed to create job in Firestore:', error);
+      setJobs((prev) => [newJob, ...prev]);
+    }
   };
 
-  const handleUpdateJobStatus = (jobId, newStatus) => {
+  // Update status from modal with Firestore synchronization
+  const handleUpdateJobStatus = async (jobId, newStatus) => {
     setJobs((prevJobs) =>
       prevJobs.map((job) =>
         job.id === jobId ? { ...job, status: newStatus } : job
       )
     );
+
+    try {
+      await updatePrintJobStatus(jobId, newStatus);
+    } catch (error) {
+      console.error('Failed to update job status in Firestore:', error);
+    }
   };
 
-  const handleDeleteJob = (jobId) => {
+  // Delete job with Firestore synchronization
+  const handleDeleteJob = async (jobId) => {
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    try {
+      await deletePrintJob(jobId);
+    } catch (error) {
+      console.error('Failed to delete job from Firestore:', error);
+    }
   };
 
-  // Header Actions button
+  const activeJobsCount = jobs.filter((j) => j.status !== 'completed').length;
+
   const headerActions = (
     <button
       type="button"
@@ -97,7 +146,7 @@ export const PrintJobsPage = () => {
   return (
     <DashboardLayout
       title="Print job management"
-      subtitle="23 active jobs · drag a ticket to update its status"
+      subtitle={`${activeJobsCount} active jobs · drag a ticket to update its status`}
       headerActions={headerActions}
     >
       {/* Top Filter Bar */}
@@ -119,11 +168,7 @@ export const PrintJobsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-start overflow-x-auto pb-6">
         {mockPrintJobColumns.map((col) => {
           const colJobs = filteredJobs.filter((job) => job.status === col.id);
-          // Set Completed column default badge to 142 unless filtered
-          const badgeCount =
-            col.id === 'completed' && searchQuery === '' && selectedStaff === 'All staff' && selectedType === 'All job types' && selectedDue === 'Due: any time'
-              ? 142
-              : colJobs.length;
+          const badgeCount = colJobs.length;
 
           return (
             <PrintJobColumn
