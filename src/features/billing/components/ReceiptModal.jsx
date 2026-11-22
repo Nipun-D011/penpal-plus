@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
-import { X, Printer, CheckCircle, Download } from 'lucide-react';
+import { useRef } from 'react';
+import { X, Printer } from 'lucide-react';
+import BrandLogo from '../../../components/common/BrandLogo';
 
 export const ReceiptModal = ({ isOpen, onClose, invoice }) => {
   const receiptRef = useRef(null);
@@ -51,17 +52,14 @@ export const ReceiptModal = ({ isOpen, onClose, invoice }) => {
           >
             {/* Header: Shop Branding */}
             <div className="text-center pb-5 border-b border-dashed border-slate-300">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#dfa84a] text-[#131d33] font-serif font-black text-lg mb-2 shadow-sm">
-                PP
-              </div>
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-                PEN PAL PLUS
-              </h1>
-              <p className="text-[10px] tracking-widest font-bold text-amber-700 uppercase">
-                BOOKSHOP & PRESS
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                42 Colombo Road, Kurunegala
+              <BrandLogo
+                size="lg"
+                variant="light"
+                centered={true}
+                subtitle="PEN PAL PLUS (PVT) LTD - BOOKSHOP & PRESS"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                12 Kurunegala-Puttalam Rd, Kurunegala
               </p>
               <p className="text-xs text-slate-500">
                 Tel: 037 222 4471 · 077 233 1190

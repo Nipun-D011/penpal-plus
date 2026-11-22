@@ -62,7 +62,7 @@ export const SupplierHeader = ({
             badge="Supplier Portal"
             badgeVariant="blue"
             subtitle="Purchase Orders & Vendor Billing Ledger"
-            theme="dark"
+            variant="dark"
             size="md"
           />
 

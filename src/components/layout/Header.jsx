@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, Menu, LogOut, User, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import BrandLogo from '../common/BrandLogo';
 
 export const Header = ({
   onToggleSidebar,
@@ -33,7 +34,7 @@ export const Header = ({
 
   return (
     <header className="bg-[#f8fafc] border-b border-slate-200/70 py-4 px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0 z-30">
-      {/* Title & Subtitle */}
+      {/* Title & Brand Logo */}
       <div className="flex items-center gap-3">
         {/* Mobile menu trigger */}
         <button
@@ -44,15 +45,21 @@ export const Header = ({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div>
-          <h1 className="text-2xl lg:text-[26px] font-serif font-bold text-slate-900 tracking-tight leading-tight">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-xs text-slate-500 font-normal mt-0.5">
-              {subtitle}
-            </p>
-          )}
+        <div className="flex items-center gap-3.5">
+          <div className="lg:hidden flex-shrink-0">
+            <BrandLogo size="sm" variant="light" />
+          </div>
+
+          <div>
+            <h1 className="text-lg lg:text-[26px] font-serif font-bold text-slate-900 tracking-tight leading-tight">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-xs text-slate-500 font-normal mt-0.5 hidden sm:block">
+                {subtitle}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

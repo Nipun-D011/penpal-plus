@@ -1,4 +1,5 @@
 import { X, Printer, CheckCircle } from 'lucide-react';
+import BrandLogo from '../../../components/common/BrandLogo';
 
 export const CustomerReceiptModal = ({ isOpen, onClose, order, customer }) => {
   if (!isOpen || !order) return null;
@@ -31,17 +32,17 @@ export const CustomerReceiptModal = ({ isOpen, onClose, order, customer }) => {
         <div className="p-6 sm:p-8 space-y-6 text-slate-800" id="customer-printable-receipt">
           {/* Shop Header */}
           <div className="text-center border-b border-dashed border-slate-300 pb-5">
-            <div className="w-10 h-10 rounded-lg bg-[#dfa84a] text-[#131d33] font-serif font-black text-lg mx-auto flex items-center justify-center mb-2">
-              PP
-            </div>
-            <h2 className="font-serif font-bold text-xl text-slate-900 tracking-tight">
-              PEN PAL PLUS (PVT) LTD
-            </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Smart Bookshop & Commercial Printing Press
+            <BrandLogo
+              size="lg"
+              variant="light"
+              centered={true}
+              subtitle="PEN PAL PLUS (PVT) LTD - BOOKSHOP & PRESS"
+            />
+            <p className="text-xs text-slate-500 mt-2">
+              12 Kurunegala-Puttalam Rd, Kurunegala
             </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              12 Kurunegala-Puttalam Rd, Kurunegala · Tel: 037 222 1190
+            <p className="text-xs text-slate-500">
+              Tel: 037 222 4471 · 077 233 1190
             </p>
           </div>
 

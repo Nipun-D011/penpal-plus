@@ -60,7 +60,7 @@ export const CustomerHeader = ({
             badge="Customer Portal"
             badgeVariant="gold"
             subtitle="Order Tracking & Digital Invoices"
-            theme="dark"
+            variant="dark"
             size="md"
           />
 
