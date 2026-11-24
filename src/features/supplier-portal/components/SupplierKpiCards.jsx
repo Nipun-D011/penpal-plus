@@ -1,11 +1,24 @@
 import { Package, Truck, DollarSign, CheckCircle2 } from 'lucide-react';
 
 export const SupplierKpiCards = ({
-  openPOCount = 2,
-  inTransitCount = 1,
-  totalOutstanding = 'Rs. 38,500',
-  lifetimePurchases = 'Rs. 412,000',
+  supplier,
+  openPOCount = 0,
+  inTransitCount = 0,
+  totalOutstanding,
+  lifetimePurchases,
 }) => {
+  const displayOutstanding =
+    totalOutstanding ??
+    supplier?.totalOutstanding ??
+    supplier?.outstanding ??
+    'Rs. 0';
+
+  const displayPurchases =
+    lifetimePurchases ??
+    supplier?.totalBilledAmount ??
+    supplier?.totalPurchases ??
+    'Rs. 0';
+
   const cards = [
     {
       title: 'Open Purchase Orders',
@@ -23,7 +36,7 @@ export const SupplierKpiCards = ({
     },
     {
       title: 'Outstanding Balance Due',
-      value: totalOutstanding,
+      value: displayOutstanding,
       subtext: 'Due from Pen Pal Plus (under credit terms)',
       icon: DollarSign,
       iconBg: 'bg-red-50 text-red-700 border-red-200',
@@ -31,7 +44,7 @@ export const SupplierKpiCards = ({
     },
     {
       title: 'Lifetime Purchases',
-      value: lifetimePurchases,
+      value: displayPurchases,
       subtext: 'Total stock procurement volume',
       icon: CheckCircle2,
       iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',

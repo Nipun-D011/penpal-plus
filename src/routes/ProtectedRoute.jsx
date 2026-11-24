@@ -18,9 +18,9 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If role is restricted, direct user automatically to their role-specific home route
-  if (allowedRoles && user?.role && !allowedRoles.includes(user.role)) {
-    return <Navigate to={getRoleHomeRoute(user.role)} replace />;
+  // Strict RBAC: If route is restricted by role, redirect unauthorized roles to their designated home route
+  if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
+    return <Navigate to={getRoleHomeRoute(user?.role)} replace />;
   }
 
   return children;

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -18,6 +18,45 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
+
+const NAV_GROUPS = [
+  {
+    title: 'OVERVIEW',
+    items: [
+      { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, roles: ['Admin', 'Staff'] },
+      { name: 'Reports', path: '/reports', icon: TrendingUp, roles: ['Admin'] },
+    ],
+  },
+  {
+    title: 'OPERATIONS',
+    items: [
+      { name: 'Inventory', path: '/inventory', icon: Layers, roles: ['Admin', 'Staff'] },
+      { name: 'Print jobs', path: '/print-jobs', icon: Printer, roles: ['Admin', 'Staff'] },
+      { name: 'Orders', path: '/orders', icon: Package, roles: ['Admin', 'Staff'] },
+      { name: 'Billing', path: '/billing', icon: Receipt, roles: ['Admin', 'Staff'] },
+    ],
+  },
+  {
+    title: 'RELATIONSHIPS',
+    items: [
+      { name: 'Customers', path: '/customers', icon: Users, roles: ['Admin', 'Staff'] },
+      { name: 'Suppliers', path: '/suppliers', icon: Truck, roles: ['Admin', 'Staff'] },
+    ],
+  },
+  {
+    title: 'PORTALS',
+    items: [
+      { name: 'Customer portal', path: '/portal/orders', icon: UserCheck, roles: ['Admin', 'Customer'] },
+      { name: 'Supplier portal', path: '/supplier/portal', icon: Building2, roles: ['Admin', 'Supplier'] },
+    ],
+  },
+  {
+    title: 'SETTINGS',
+    items: [
+      { name: 'Rate card', path: '/rate-card', icon: Tag, roles: ['Admin'] },
+    ],
+  },
+];
 
 export const Sidebar = ({ isOpen, onClose }) => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -43,44 +82,16 @@ export const Sidebar = ({ isOpen, onClose }) => {
     navigate('/login');
   };
 
-  const navGroups = [
-    {
-      title: 'OVERVIEW',
-      items: [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid },
-        { name: 'Reports', path: '/reports', icon: TrendingUp },
-      ],
-    },
-    {
-      title: 'OPERATIONS',
-      items: [
-        { name: 'Inventory', path: '/inventory', icon: Layers },
-        { name: 'Print jobs', path: '/print-jobs', icon: Printer },
-        { name: 'Orders', path: '/orders', icon: Package },
-        { name: 'Billing', path: '/billing', icon: Receipt },
-      ],
-    },
-    {
-      title: 'RELATIONSHIPS',
-      items: [
-        { name: 'Customers', path: '/customers', icon: Users },
-        { name: 'Suppliers', path: '/suppliers', icon: Truck },
-      ],
-    },
-    {
-      title: 'PORTALS',
-      items: [
-        { name: 'Customer portal', path: '/portal/orders', icon: UserCheck },
-        { name: 'Supplier portal', path: '/supplier/portal', icon: Building2 },
-      ],
-    },
-    {
-      title: 'SETTINGS',
-      items: [
-        { name: 'Rate card', path: '/rate-card', icon: Tag },
-      ],
-    },
-  ];
+  // Filter nav groups according to user?.role (Customers and Suppliers never see internal shop navigation links)
+  const filteredNavGroups = useMemo(() => {
+    const currentRole = user?.role || 'Admin';
+    return NAV_GROUPS
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.roles.includes(currentRole)),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [user?.role]);
 
   return (
     <>
@@ -128,7 +139,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
 
           {/* Navigation Groups */}
           <div className="px-3 py-4 space-y-5 overflow-y-auto custom-scrollbar flex-1">
-            {navGroups.map((group, groupIdx) => (
+            {filteredNavGroups.map((group, groupIdx) => (
               <div key={groupIdx}>
                 <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400/80 tracking-wider uppercase">
                   {group.title}
@@ -162,7 +173,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Bottom User Info Profile (Green Area with Clickable Logout Popup) */}
+        {/* Bottom User Info Profile */}
         <div className="p-4 border-t border-slate-800/80 flex-shrink-0 relative" ref={profileMenuRef}>
           {/* Profile Popup Menu opening upwards */}
           {profileMenuOpen && (

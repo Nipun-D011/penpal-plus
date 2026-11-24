@@ -80,8 +80,8 @@ export const SupplierPortalPage = () => {
           email: s.email,
           address: s.address,
           paymentTerms: s.paymentTerms || 'Credit 30 Days',
-          totalOrdersCount: s.recentOrders?.length || 12,
-          totalBilledAmount: s.totalPurchases || 'Rs. 250,000',
+          totalOrdersCount: s.recentOrders?.length || 0,
+          totalBilledAmount: s.totalPurchases || 'Rs. 0',
           totalOutstanding: s.outstanding || 'Rs. 0',
           avatarInitials: s.name
             ? s.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -196,6 +196,26 @@ export const SupplierPortalPage = () => {
     return [];
   }, [supplierBills, activeSupplier]);
 
+  // Calculate bill metrics dynamically
+  const calculatedBills = useMemo(() => {
+    const totalBilled = currentSupplierBills.reduce((acc, b) => {
+      const raw = parseInt(String(b.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      return acc + raw;
+    }, 0);
+
+    const totalPaid = currentSupplierBills.reduce((acc, b) => {
+      const raw = parseInt(String(b.amountPaid || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      return acc + raw;
+    }, 0);
+
+    const outstanding = totalBilled - totalPaid;
+    return {
+      totalBilled: `Rs. ${totalBilled.toLocaleString()}`,
+      outstanding: `Rs. ${outstanding.toLocaleString()}`,
+      hasBills: currentSupplierBills.length > 0,
+    };
+  }, [currentSupplierBills]);
+
   const supplierAlerts = mockSupplierLowStockAlerts.filter(
     (a) => a.supplierId === activeSupplier.id
   );
@@ -307,7 +327,16 @@ export const SupplierPortalPage = () => {
           supplier={activeSupplier}
           openPOCount={openPOCount}
           inTransitCount={inTransitCount}
-          alertsCount={supplierAlerts.length}
+          totalOutstanding={
+            calculatedBills.hasBills
+              ? calculatedBills.outstanding
+              : activeSupplier.totalOutstanding || activeSupplier.outstanding || 'Rs. 0'
+          }
+          lifetimePurchases={
+            calculatedBills.hasBills
+              ? calculatedBills.totalBilled
+              : activeSupplier.totalBilledAmount || activeSupplier.totalPurchases || 'Rs. 0'
+          }
         />
 
         {/* Dynamic Tab Contents */}

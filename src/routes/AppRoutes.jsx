@@ -57,7 +57,7 @@ export const AppRoutes = () => {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
+            <ProtectedRoute allowedRoles={['Admin']}>
               <ReportsPage />
             </ProtectedRoute>
           }
@@ -113,13 +113,13 @@ export const AppRoutes = () => {
         <Route
           path="/rate-card"
           element={
-            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
+            <ProtectedRoute allowedRoles={['Admin']}>
               <RateCardPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Customer Portal Routes */}
+        {/* Customer Portal Routes - Restricted to Customer & Admin */}
         <Route
           path="/portal"
           element={<Navigate to="/portal/orders" replace />}
@@ -127,7 +127,7 @@ export const AppRoutes = () => {
         <Route
           path="/portal/orders"
           element={
-            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
@@ -135,7 +135,7 @@ export const AppRoutes = () => {
         <Route
           path="/portal/invoices"
           element={
-            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
@@ -143,13 +143,13 @@ export const AppRoutes = () => {
         <Route
           path="/portal/profile"
           element={
-            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Supplier Portal Routes */}
+        {/* Supplier Portal Routes - Restricted to Supplier & Admin */}
         <Route
           path="/supplier"
           element={<Navigate to="/supplier/portal" replace />}
