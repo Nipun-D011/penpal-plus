@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -172,7 +172,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
                 <p className="text-[11px] text-slate-400 truncate">{user?.email || 'aravinda@penpalplus.lk'}</p>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[10px] text-slate-300 font-medium">{user?.role || 'Owner / Admin'}</span>
+                  <span className="text-[10px] text-slate-300 font-medium">{user?.role || 'Admin'}</span>
                 </div>
               </div>
 
@@ -206,7 +206,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
                   {user?.name || 'Aravinda Perera'}
                 </span>
                 <span className="text-slate-400 text-[11px] truncate mt-0.5">
-                  {user?.role || 'Owner / Admin'}
+                  {user?.role || 'Admin'}
                 </span>
               </div>
             </div>

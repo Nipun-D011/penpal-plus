@@ -80,7 +80,7 @@ export const SignupForm = ({ onSubmit, onLogin }) => {
   const accountTypes = [
     {
       id: 'owner',
-      label: 'Owner / Admin',
+      label: 'Admin',
       icon: Tag,
     },
     {

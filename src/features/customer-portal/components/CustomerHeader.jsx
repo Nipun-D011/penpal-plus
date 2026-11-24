@@ -19,13 +19,14 @@ export const CustomerHeader = ({
   customers = [],
   activeTab,
   onTabChange,
-  activeOrderCount = 1,
+  activeOrderCount = 0,
 }) => {
   const customerList = customers && customers.length > 0 ? customers : mockPortalCustomers;
   const [customerMenuOpen, setCustomerMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isCustomerRole = user?.role === 'Customer';
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -69,15 +70,14 @@ export const CustomerHeader = ({
             </div>
           </div>
 
-          {/* Right Section: Switch Customer Demo & Account */}
+          {/* Right Section: Customer Account & Switcher */}
           <div className="flex items-center gap-3">
-            {/* Quick Demo Customer Selector */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setCustomerMenuOpen(!customerMenuOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs transition-colors"
-                title="Switch customer account"
+                title={isCustomerRole ? 'Account Menu' : 'Switch Customer'}
               >
                 <div
                   className={`w-6 h-6 rounded-full ${
@@ -99,75 +99,119 @@ export const CustomerHeader = ({
 
               {customerMenuOpen && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Switch Test Customer
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {customerList.map((cust) => (
-                      <button
-                        key={cust.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectCustomer(cust);
-                          setCustomerMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors ${
-                          activeCustomer.id === cust.id ? 'bg-amber-50/70' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-7 h-7 rounded-full ${cust.avatarBg} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
-                          >
-                            {cust.avatarInitials}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-900 leading-tight">
-                              {cust.name}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              {cust.loyaltyTier} · {cust.phone}
-                            </p>
-                          </div>
+                  {isCustomerRole ? (
+                    <div>
+                      <div className="px-3.5 py-2.5 border-b border-slate-100">
+                        <p className="font-semibold text-slate-900 text-xs leading-tight">
+                          {activeCustomer.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          {activeCustomer.email || user?.email}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wider">
+                            {activeCustomer.loyaltyTier || 'Customer Account'}
+                          </span>
                         </div>
-                        {activeCustomer.id === cust.id && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                      </div>
+                      <div className="pt-2 px-3 pb-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onTabChange('profile');
+                            setCustomerMenuOpen(false);
+                          }}
+                          className="w-full text-left text-xs text-slate-700 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <User className="w-3.5 h-3.5 text-slate-500" />
+                          My Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Switch Test Customer
+                      </div>
+                      <div className="max-h-60 overflow-y-auto py-1">
+                        {customerList.map((cust) => (
+                          <button
+                            key={cust.id}
+                            type="button"
+                            onClick={() => {
+                              onSelectCustomer(cust);
+                              setCustomerMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors ${
+                              activeCustomer.id === cust.id ? 'bg-amber-50/70' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-7 h-7 rounded-full ${cust.avatarBg} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
+                              >
+                                {cust.avatarInitials}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900 leading-tight">
+                                  {cust.name}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {cust.loyaltyTier} · {cust.phone}
+                                </p>
+                              </div>
+                            </div>
+                            {activeCustomer.id === cust.id && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
 
-                  <div className="border-t border-slate-100 pt-2 px-3 pb-1">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/dashboard')}
-                      className="w-full text-left text-xs text-slate-600 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
-                      Back to Shop Admin Staff View
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      Sign Out
-                    </button>
-                  </div>
+                      <div className="border-t border-slate-100 pt-2 px-3 pb-1">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/dashboard')}
+                          className="w-full text-left text-xs text-slate-600 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                          Back to Shop Admin Staff View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Admin Switcher shortcut */}
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#dfa84a]" />
-              Staff View
-            </button>
+            {/* Admin Switcher shortcut: Only show if Admin or Staff */}
+            {!isCustomerRole && (
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#dfa84a]" />
+                Staff View
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import {
   signInWithEmailAndPassword,
@@ -11,11 +12,186 @@ import {
   doc,
   getDoc,
   setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
   serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../services/firebase';
 
 const AuthContext = createContext(null);
+
+/**
+ * Route resolution helper for roles
+ * Admin / Staff -> /dashboard
+ * Customer -> /portal/orders
+ * Supplier -> /supplier/portal
+ */
+export const getRoleHomeRoute = (role) => {
+  switch (role) {
+    case 'Customer':
+      return '/portal/orders';
+    case 'Supplier':
+      return '/supplier/portal';
+    case 'Staff':
+    case 'Admin':
+    default:
+      return '/dashboard';
+  }
+};
+
+/**
+ * Normalize role strings into canonical roles:
+ * 'Admin' | 'Staff' | 'Customer' | 'Supplier'
+ */
+export const normalizeRole = (role, email = '') => {
+  const lower = (email || '').toLowerCase().trim();
+
+  if (role) {
+    const r = role.toLowerCase().trim();
+    if (r === 'admin' || r === 'owner' || r.includes('admin') || r.includes('owner')) {
+      return 'Admin';
+    }
+    if (r === 'staff') {
+      return 'Staff';
+    }
+    if (r === 'customer') {
+      return 'Customer';
+    }
+    if (r === 'supplier') {
+      return 'Supplier';
+    }
+  }
+
+  // Schema rule: @penpalplus.lk = Admin / Staff
+  if (lower.endsWith('@penpalplus.lk') || lower.includes('penpalplus.lk')) {
+    if (lower.includes('staff')) {
+      return 'Staff';
+    }
+    return 'Admin';
+  }
+
+  // Customer patterns & demo registry
+  if (
+    lower.includes('customer') ||
+    lower.includes('kumari') ||
+    lower.includes('stannes') ||
+    lower.includes('nimal') ||
+    lower.includes('ruwan')
+  ) {
+    return 'Customer';
+  }
+
+  // Supplier patterns & demo registry
+  if (
+    lower.includes('supplier') ||
+    lower.includes('sarasavi') ||
+    lower.includes('lankapaper') ||
+    lower.includes('paper') ||
+    lower.includes('ceylonprint')
+  ) {
+    return 'Supplier';
+  }
+
+  return 'Customer';
+};
+
+/**
+ * Smart Role Detection from Firestore & Role Schemas:
+ * 1. Checks Firestore "users" collection (by uid or email)
+ * 2. Checks @penpalplus.lk domain schema -> Admin / Staff
+ * 3. Checks Customer registry in Firestore ("customers" collection) -> Customer
+ * 4. Checks Supplier registry in Firestore ("suppliers" collection) -> Supplier
+ * 5. Falls back to normalized schema evaluation
+ */
+export const resolveUserRole = async (email = '', uid = null) => {
+  const cleanEmail = (email || '').trim();
+  const lowerEmail = cleanEmail.toLowerCase();
+
+  // 1. Query Firestore "users" collection by uid if available
+  if (uid) {
+    try {
+      const userDocRef = doc(db, 'users', uid);
+      const userSnap = await getDoc(userDocRef);
+      if (userSnap.exists()) {
+        const storedRole = userSnap.data()?.role;
+        if (storedRole) {
+          return normalizeRole(storedRole, lowerEmail);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not query users collection by uid:', err);
+    }
+  }
+
+  // 2. Query Firestore "users" collection by email
+  if (cleanEmail) {
+    try {
+      const usersQuery = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const usersSnap = await getDocs(usersQuery);
+      if (!usersSnap.empty) {
+        const storedRole = usersSnap.docs[0].data()?.role;
+        if (storedRole) {
+          return normalizeRole(storedRole, lowerEmail);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not query users collection by email:', err);
+    }
+  }
+
+  // 3. Registered role schema: @penpalplus.lk = Admin / Staff
+  if (lowerEmail.endsWith('@penpalplus.lk') || lowerEmail.includes('penpalplus.lk')) {
+    if (lowerEmail.includes('staff')) {
+      return 'Staff';
+    }
+    return 'Admin';
+  }
+
+  // 4. Check Customer registry (Firestore "customers" collection)
+  if (cleanEmail) {
+    try {
+      const custQuery = query(collection(db, 'customers'), where('email', '==', cleanEmail));
+      const custSnap = await getDocs(custQuery);
+      if (!custSnap.empty) {
+        return 'Customer';
+      }
+      if (cleanEmail !== lowerEmail) {
+        const custQueryLower = query(collection(db, 'customers'), where('email', '==', lowerEmail));
+        const custSnapLower = await getDocs(custQueryLower);
+        if (!custSnapLower.empty) {
+          return 'Customer';
+        }
+      }
+    } catch (err) {
+      console.warn('Could not query customers collection by email:', err);
+    }
+  }
+
+  // 5. Check Supplier registry (Firestore "suppliers" collection)
+  if (cleanEmail) {
+    try {
+      const suppQuery = query(collection(db, 'suppliers'), where('email', '==', cleanEmail));
+      const suppSnap = await getDocs(suppQuery);
+      if (!suppSnap.empty) {
+        return 'Supplier';
+      }
+      if (cleanEmail !== lowerEmail) {
+        const suppQueryLower = query(collection(db, 'suppliers'), where('email', '==', lowerEmail));
+        const suppSnapLower = await getDocs(suppQueryLower);
+        if (!suppSnapLower.empty) {
+          return 'Supplier';
+        }
+      }
+    } catch (err) {
+      console.warn('Could not query suppliers collection by email:', err);
+    }
+  }
+
+  // 6. Schema-based fallback detection
+  return normalizeRole(null, lowerEmail);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -28,29 +204,6 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(true);
 
-  // Helper to normalize role names
-  const normalizeRole = (role, email = '') => {
-    if (!role) {
-      const lower = email.toLowerCase();
-      if (lower.includes('sarasavi') || lower.includes('supplier') || lower.includes('paper')) {
-        return 'Supplier';
-      }
-      if (lower.includes('kumari') || lower.includes('customer') || lower.includes('stannes') || lower.includes('nimal')) {
-        return 'Customer';
-      }
-      if (lower.includes('staff')) {
-        return 'Staff';
-      }
-      return 'Owner / Admin';
-    }
-    const r = role.toLowerCase();
-    if (r === 'owner' || r.includes('admin')) return 'Owner / Admin';
-    if (r === 'staff') return 'Staff';
-    if (r === 'customer') return 'Customer';
-    if (r === 'supplier') return 'Supplier';
-    return role;
-  };
-
   // Listen to Firebase Auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -58,6 +211,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userSnap = await getDoc(userDocRef);
+          const resolvedRole = await resolveUserRole(firebaseUser.email, firebaseUser.uid);
 
           let userData;
           if (userSnap.exists()) {
@@ -66,19 +220,20 @@ export const AuthProvider = ({ children }) => {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               name: data.fullName || firebaseUser.displayName || 'Pen Pal Plus User',
-              role: normalizeRole(data.role, firebaseUser.email),
+              role: resolvedRole,
               phoneNumber: data.phoneNumber || '',
               businessName: data.businessName || '',
             };
+            if (data.role !== resolvedRole) {
+              await setDoc(userDocRef, { role: resolvedRole }, { merge: true });
+            }
           } else {
-            // Document doesn't exist yet (e.g. Google Sign-in first time)
-            const role = normalizeRole(null, firebaseUser.email);
             const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
             userData = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               name,
-              role,
+              role: resolvedRole,
             };
             await setDoc(userDocRef, {
               ...userData,
@@ -90,12 +245,12 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('penpal_user', JSON.stringify(userData));
         } catch (error) {
           console.error('Error fetching Firestore user profile:', error);
-          // Fallback user state from Firebase Auth
+          const fallbackRole = await resolveUserRole(firebaseUser.email, firebaseUser.uid);
           const fallbackData = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-            role: normalizeRole(null, firebaseUser.email),
+            role: fallbackRole,
           };
           setUser(fallbackData);
           localStorage.setItem('penpal_user', JSON.stringify(fallbackData));
@@ -141,6 +296,52 @@ export const AuthProvider = ({ children }) => {
 
       await setDoc(doc(db, 'users', firebaseUser.uid), userDocData);
 
+      // Mirror customer in customers collection if role is Customer
+      if (role === 'Customer') {
+        try {
+          const custDocRef = doc(db, 'customers', `cust-${firebaseUser.uid.slice(0, 8)}`);
+          await setDoc(
+            custDocRef,
+            {
+              id: `cust-${firebaseUser.uid.slice(0, 8)}`,
+              name: fullName,
+              email,
+              phone: formData.phoneNumber || '',
+              city: 'Kurunegala',
+              ordersCount: 0,
+              totalSpent: 'Rs. 0',
+              totalSpentFormatted: '0',
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn('Could not mirror customer registry:', e);
+        }
+      }
+
+      // Mirror supplier in suppliers collection if role is Supplier
+      if (role === 'Supplier') {
+        try {
+          const suppDocRef = doc(db, 'suppliers', `sup-${firebaseUser.uid.slice(0, 8)}`);
+          await setDoc(
+            suppDocRef,
+            {
+              id: `sup-${firebaseUser.uid.slice(0, 8)}`,
+              name: formData.businessName || fullName,
+              email,
+              contact: formData.phoneNumber || '',
+              category: 'General Supplies',
+              status: 'Active',
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn('Could not mirror supplier registry:', e);
+        }
+      }
+
       const sessionUser = {
         uid: firebaseUser.uid,
         email,
@@ -158,7 +359,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Firebase Sign In
+  // Firebase Sign In with Smart Role Resolution
   const login = async (credentials) => {
     setLoading(true);
     try {
@@ -171,10 +372,13 @@ export const AuthProvider = ({ children }) => {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authError) {
         // Auto-provision demo accounts on-the-fly for seamless testing
+        const lowerEmail = email.toLowerCase();
         const isDemo =
-          email === 'aravinda@penpalplus.lk' ||
-          email === 'kumari.fonseka@gmail.com' ||
-          email === 'orders@sarasavi.lk';
+          lowerEmail === 'aravinda@penpalplus.lk' ||
+          lowerEmail === 'kumari.fonseka@gmail.com' ||
+          lowerEmail === 'orders@sarasavi.lk' ||
+          lowerEmail === 'staff@penpalplus.lk' ||
+          lowerEmail === 'sunil@penpalplus.lk';
 
         if (
           isDemo &&
@@ -182,24 +386,33 @@ export const AuthProvider = ({ children }) => {
             authError.code === 'auth/invalid-credential' ||
             authError.code === 'auth/invalid-login-credentials')
         ) {
-          // Create the demo account in Firebase Auth
-          userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const demoName =
-            email === 'aravinda@penpalplus.lk'
-              ? 'Aravinda Perera'
-              : email === 'kumari.fonseka@gmail.com'
-              ? 'Kumari Fonseka'
-              : 'Sarasavi Wholesalers';
-          const demoRole = normalizeRole(null, email);
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const demoName =
+              lowerEmail === 'aravinda@penpalplus.lk'
+                ? 'Aravinda Perera'
+                : lowerEmail === 'staff@penpalplus.lk' || lowerEmail === 'sunil@penpalplus.lk'
+                ? 'Sunil Shantha (Staff)'
+                : lowerEmail === 'kumari.fonseka@gmail.com'
+                ? 'Kumari Fonseka'
+                : 'Sarasavi Wholesalers';
 
-          await updateProfile(userCredential.user, { displayName: demoName });
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            uid: userCredential.user.uid,
-            email,
-            fullName: demoName,
-            role: demoRole,
-            createdAt: serverTimestamp(),
-          });
+            const demoRole = await resolveUserRole(email, userCredential.user.uid);
+
+            await updateProfile(userCredential.user, { displayName: demoName });
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+              uid: userCredential.user.uid,
+              email,
+              fullName: demoName,
+              role: demoRole,
+              createdAt: serverTimestamp(),
+            });
+          } catch (createErr) {
+            if (createErr.code === 'auth/email-already-in-use') {
+              throw authError;
+            }
+            throw createErr;
+          }
         } else {
           // Re-throw formatted error
           throw authError;
@@ -207,6 +420,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       const firebaseUser = userCredential.user;
+
+      // Smart role resolution: query Firestore (users, customers, suppliers) or determine from role schema
+      const resolvedRole = await resolveUserRole(firebaseUser.email || email, firebaseUser.uid);
 
       // Fetch or build user profile
       const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -219,22 +435,26 @@ export const AuthProvider = ({ children }) => {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name: data.fullName || firebaseUser.displayName || 'Pen Pal Plus User',
-          role: normalizeRole(data.role, firebaseUser.email),
+          role: resolvedRole,
           phoneNumber: data.phoneNumber || '',
           businessName: data.businessName || '',
         };
+        // Persist resolved role to Firestore if updated
+        if (data.role !== resolvedRole) {
+          await setDoc(userDocRef, { role: resolvedRole }, { merge: true });
+        }
       } else {
-        const role = normalizeRole(credentials.role || credentials.accountType, firebaseUser.email);
-        const name = credentials.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0];
+        const name = credentials.fullName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
         userData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name,
-          role,
+          role: resolvedRole,
         };
         await setDoc(userDocRef, { ...userData, createdAt: serverTimestamp() });
       }
 
+      // Set authenticated user state with the resolved canonical role
       setUser(userData);
       localStorage.setItem('penpal_user', JSON.stringify(userData));
       return userData;
@@ -243,13 +463,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Firebase Google Sign In
+  // Firebase Google Sign In with Smart Role Resolution
   const loginWithGoogle = async () => {
     setLoading(true);
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
       const firebaseUser = userCredential.user;
 
+      const resolvedRole = await resolveUserRole(firebaseUser.email, firebaseUser.uid);
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userDocRef);
 
@@ -260,15 +481,17 @@ export const AuthProvider = ({ children }) => {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name: data.fullName || firebaseUser.displayName,
-          role: normalizeRole(data.role, firebaseUser.email),
+          role: resolvedRole,
         };
+        if (data.role !== resolvedRole) {
+          await setDoc(userDocRef, { role: resolvedRole }, { merge: true });
+        }
       } else {
-        const role = normalizeRole(null, firebaseUser.email);
         userData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-          role,
+          role: resolvedRole,
         };
         await setDoc(userDocRef, { ...userData, createdAt: serverTimestamp() });
       }
@@ -303,6 +526,9 @@ export const AuthProvider = ({ children }) => {
         signup,
         loginWithGoogle,
         logout,
+        getRoleHomeRoute,
+        resolveUserRole,
+        normalizeRole,
       }}
     >
       {children}
@@ -310,7 +536,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

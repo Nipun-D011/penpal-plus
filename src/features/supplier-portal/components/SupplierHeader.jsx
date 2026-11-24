@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Truck,
-  FileText,
   DollarSign,
   AlertTriangle,
   Building2,
@@ -21,14 +20,15 @@ export const SupplierHeader = ({
   suppliers = [],
   activeTab,
   onTabChange,
-  openPOCount = 2,
-  alertsCount = 2,
+  openPOCount = 0,
+  alertsCount = 0,
 }) => {
   const supplierList = suppliers && suppliers.length > 0 ? suppliers : mockPortalSuppliers;
   const [supplierMenuOpen, setSupplierMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isSupplierRole = user?.role === 'Supplier';
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -71,15 +71,14 @@ export const SupplierHeader = ({
             </div>
           </div>
 
-          {/* Right Section: Supplier Selector & Account */}
+          {/* Right Section: Supplier Account & Switcher */}
           <div className="flex items-center gap-3">
-            {/* Quick Demo Supplier Selector */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setSupplierMenuOpen(!supplierMenuOpen)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs transition-colors"
-                title="Switch supplier account"
+                title={isSupplierRole ? 'Account Menu' : 'Switch Supplier'}
               >
                 <div
                   className={`w-6 h-6 rounded-full ${
@@ -101,75 +100,119 @@ export const SupplierHeader = ({
 
               {supplierMenuOpen && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Switch Vendor Account (Demo)
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {supplierList.map((sup) => (
-                      <button
-                        key={sup.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectSupplier(sup);
-                          setSupplierMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors ${
-                          activeSupplier.id === sup.id ? 'bg-blue-50/70' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-7 h-7 rounded-full ${sup.avatarBg} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
-                          >
-                            {sup.avatarInitials}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-slate-900 leading-tight">
-                              {sup.name}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              {sup.category} · {sup.phone}
-                            </p>
-                          </div>
+                  {isSupplierRole ? (
+                    <div>
+                      <div className="px-3.5 py-2.5 border-b border-slate-100">
+                        <p className="font-semibold text-slate-900 text-xs leading-tight">
+                          {activeSupplier.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                          {activeSupplier.email || user?.email}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          <span className="text-[10px] text-blue-700 font-semibold uppercase tracking-wider">
+                            {activeSupplier.category || 'Vendor Account'}
+                          </span>
                         </div>
-                        {activeSupplier.id === sup.id && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                      </div>
+                      <div className="pt-2 px-3 pb-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onTabChange('profile');
+                            setSupplierMenuOpen(false);
+                          }}
+                          className="w-full text-left text-xs text-slate-700 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                          Supplier Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Switch Vendor Account (Demo)
+                      </div>
+                      <div className="max-h-60 overflow-y-auto py-1">
+                        {supplierList.map((sup) => (
+                          <button
+                            key={sup.id}
+                            type="button"
+                            onClick={() => {
+                              onSelectSupplier(sup);
+                              setSupplierMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors ${
+                              activeSupplier.id === sup.id ? 'bg-blue-50/70' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-7 h-7 rounded-full ${sup.avatarBg} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
+                              >
+                                {sup.avatarInitials}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900 leading-tight">
+                                  {sup.name}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {sup.category} · {sup.phone}
+                                </p>
+                              </div>
+                            </div>
+                            {activeSupplier.id === sup.id && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
 
-                  <div className="border-t border-slate-100 pt-2 px-3 pb-1">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/dashboard')}
-                      className="w-full text-left text-xs text-slate-600 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-[#dfa84a]" />
-                      Back to Shop Admin Staff View
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      Sign Out
-                    </button>
-                  </div>
+                      <div className="border-t border-slate-100 pt-2 px-3 pb-1">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/dashboard')}
+                          className="w-full text-left text-xs text-slate-600 hover:text-slate-900 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-[#dfa84a]" />
+                          Back to Shop Admin Staff View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-full text-left text-xs text-red-600 hover:text-red-700 flex items-center gap-2 py-1.5 font-medium transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Admin Switcher shortcut */}
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#dfa84a]" />
-              Staff View
-            </button>
+            {/* Admin Switcher shortcut: Only show if Admin or Staff */}
+            {!isSupplierRole && (
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#dfa84a]" />
+                Staff View
+              </button>
+            )}
           </div>
         </div>
 
@@ -180,15 +223,15 @@ export const SupplierHeader = ({
             onClick={() => onTabChange('orders')}
             className={`flex items-center gap-2 py-2.5 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'orders'
-                ? 'border-[#dfa84a] text-[#dfa84a]'
+                ? 'border-blue-400 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Truck className="w-4 h-4" />
             <span>Purchase Orders</span>
             {openPOCount > 0 && (
-              <span className="bg-blue-600 text-white font-bold text-[10px] px-1.5 py-0.2 rounded-full">
-                {openPOCount} Open
+              <span className="bg-blue-500 text-white font-bold text-[10px] px-1.5 py-0.2 rounded-full">
+                {openPOCount}
               </span>
             )}
           </button>
@@ -198,12 +241,12 @@ export const SupplierHeader = ({
             onClick={() => onTabChange('deliveries')}
             className={`flex items-center gap-2 py-2.5 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'deliveries'
-                ? 'border-[#dfa84a] text-[#dfa84a]'
+                ? 'border-blue-400 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <FileText className="w-4 h-4" />
-            <span>Stock Deliveries & Receipts</span>
+            <Truck className="w-4 h-4" />
+            <span>Active Deliveries</span>
           </button>
 
           <button
@@ -211,12 +254,12 @@ export const SupplierHeader = ({
             onClick={() => onTabChange('bills')}
             className={`flex items-center gap-2 py-2.5 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'bills'
-                ? 'border-[#dfa84a] text-[#dfa84a]'
+                ? 'border-blue-400 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <DollarSign className="w-4 h-4" />
-            <span>Bills & Payment Ledger</span>
+            <span>Bills & Ledger</span>
           </button>
 
           <button
@@ -224,14 +267,14 @@ export const SupplierHeader = ({
             onClick={() => onTabChange('alerts')}
             className={`flex items-center gap-2 py-2.5 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'alerts'
-                ? 'border-[#dfa84a] text-[#dfa84a]'
+                ? 'border-blue-400 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-            <span>Stock Reorder Alerts</span>
+            <AlertTriangle className="w-4 h-4" />
+            <span>Reorder Alerts</span>
             {alertsCount > 0 && (
-              <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-1.5 py-0.2 rounded-full">
+              <span className="bg-amber-500 text-slate-900 font-bold text-[10px] px-1.5 py-0.2 rounded-full">
                 {alertsCount}
               </span>
             )}
@@ -242,12 +285,12 @@ export const SupplierHeader = ({
             onClick={() => onTabChange('profile')}
             className={`flex items-center gap-2 py-2.5 px-3 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === 'profile'
-                ? 'border-[#dfa84a] text-[#dfa84a]'
+                ? 'border-blue-400 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Building2 className="w-4 h-4" />
-            <span>Vendor Profile</span>
+            <span>Company Profile</span>
           </button>
         </div>
       </div>

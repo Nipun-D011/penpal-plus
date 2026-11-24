@@ -1,22 +1,24 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import LoginForm from '../components/LoginForm';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth, getRoleHomeRoute } from '../../../context/AuthContext';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated, user, loading } = useAuth();
+
+  // Redirect automatically if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated && user) {
+      navigate(getRoleHomeRoute(user.role), { replace: true });
+    }
+  }, [loading, isAuthenticated, user, navigate]);
 
   const handleLogin = async (credentials) => {
     try {
-      const user = await login(credentials);
-      if (user?.role === 'Customer') {
-        navigate('/portal/orders');
-      } else if (user?.role === 'Supplier') {
-        navigate('/supplier/portal');
-      } else {
-        navigate('/dashboard');
-      }
+      const loggedUser = await login(credentials);
+      navigate(getRoleHomeRoute(loggedUser?.role));
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -25,14 +27,8 @@ export const LoginPage = () => {
 
   const handleGoogleSignIn = async () => {
     try {
-      const user = await loginWithGoogle();
-      if (user?.role === 'Customer') {
-        navigate('/portal/orders');
-      } else if (user?.role === 'Supplier') {
-        navigate('/supplier/portal');
-      } else {
-        navigate('/dashboard');
-      }
+      const loggedUser = await loginWithGoogle();
+      navigate(getRoleHomeRoute(loggedUser?.role));
     } catch (error) {
       console.error('Google Sign In error:', error);
       throw error;

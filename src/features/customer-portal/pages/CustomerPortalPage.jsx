@@ -12,6 +12,7 @@ import { subscribeToCustomers } from '../../../services/customerService';
 import { subscribeToOrders, getStatusStep } from '../../../services/orderService';
 import { subscribeToPrintJobs } from '../../../services/printJobService';
 import { subscribeToInvoices } from '../../../services/billingService';
+import { useAuth } from '../../../context/AuthContext';
 import {
   FileText,
   User,
@@ -22,8 +23,9 @@ import {
 } from 'lucide-react';
 
 export const CustomerPortalPage = () => {
+  const { user } = useAuth();
   const [customersList, setCustomersList] = useState(mockPortalCustomers);
-  const [activeCustomerId, setActiveCustomerId] = useState(mockPortalCustomers[0]?.id);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [activeTab, setActiveTab] = useState('tracking'); // 'tracking', 'history', 'invoices', 'profile'
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
@@ -32,24 +34,59 @@ export const CustomerPortalPage = () => {
   const [livePrintJobs, setLivePrintJobs] = useState([]);
   const [liveInvoices, setLiveInvoices] = useState([]);
 
+  // Synthesize customer profile for authenticated user
+  const currentAuthCustomer = useMemo(() => {
+    if (!user) return null;
+    const name = user.name || user.fullName || user.email?.split('@')[0] || 'Customer';
+    const nameParts = name.trim().split(' ').filter(Boolean);
+    const initials =
+      nameParts.length > 1
+        ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+        : name.slice(0, 2).toUpperCase();
+
+    return {
+      id: `cust-${user.uid?.slice(0, 8) || 'user'}`,
+      uid: user.uid,
+      name,
+      email: user.email || '',
+      phone: user.phoneNumber || '077 233 1190',
+      address: 'Kurunegala',
+      memberSince: 'Since 2026',
+      loyaltyTier: 'New Customer',
+      totalOrders: 0,
+      totalSpent: 'Rs. 0',
+      avatarInitials: initials,
+      avatarBg: 'bg-emerald-700',
+    };
+  }, [user]);
+
   // Subscribe to live Firestore collections
   useEffect(() => {
     const unsubCustomers = subscribeToCustomers((data) => {
       if (data && data.length > 0) {
-        const mapped = data.map((c) => ({
-          ...c,
-          id: c.id,
-          name: c.name,
-          email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-          phone: c.phone || '077 233 1190',
-          address: c.city ? `Kurunegala (${c.city})` : 'Kurunegala',
-          memberSince: c.customerSince ? `Since ${c.customerSince}` : 'March 2023',
-          loyaltyTier: c.ordersCount > 15 ? 'Gold Member' : 'Regular Customer',
-          totalOrders: c.ordersCount || 0,
-          totalSpent: c.totalSpent || 'Rs. 0',
-          avatarInitials: c.initials || 'CP',
-          avatarBg: c.avatarBg || 'bg-emerald-700',
-        }));
+        const mapped = data.map((c) => {
+          const nameParts = (c.name || '').trim().split(' ').filter(Boolean);
+          const initials =
+            c.initials ||
+            (nameParts.length > 1
+              ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+              : (c.name || 'CP').slice(0, 2).toUpperCase());
+
+          return {
+            ...c,
+            id: c.id,
+            name: c.name,
+            email: c.email || `${c.name?.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
+            phone: c.phone || '077 233 1190',
+            address: c.city ? `Kurunegala (${c.city})` : 'Kurunegala',
+            memberSince: c.customerSince ? `Since ${c.customerSince}` : 'March 2023',
+            loyaltyTier: c.ordersCount > 15 ? 'Gold Member' : 'Regular Customer',
+            totalOrders: c.ordersCount || 0,
+            totalSpent: c.totalSpent || 'Rs. 0',
+            avatarInitials: initials,
+            avatarBg: c.avatarBg || 'bg-emerald-700',
+          };
+        });
         setCustomersList(mapped);
       }
     });
@@ -66,13 +103,45 @@ export const CustomerPortalPage = () => {
     };
   }, []);
 
+  // Ensure current auth customer appears in list
+  const displayCustomersList = useMemo(() => {
+    if (
+      currentAuthCustomer &&
+      !customersList.some(
+        (c) =>
+          c.id === currentAuthCustomer.id ||
+          (c.email && c.email.toLowerCase() === currentAuthCustomer.email.toLowerCase())
+      )
+    ) {
+      return [currentAuthCustomer, ...customersList];
+    }
+    return customersList;
+  }, [currentAuthCustomer, customersList]);
+
+  // Derive active customer: user profile if customer, or selection if admin/staff
   const activeCustomer = useMemo(() => {
-    return (
-      customersList.find((c) => c.id === activeCustomerId) ||
-      customersList[0] ||
-      mockPortalCustomers[0]
-    );
-  }, [customersList, activeCustomerId]);
+    if (selectedCustomerId) {
+      const found = displayCustomersList.find((c) => c.id === selectedCustomerId);
+      if (found) return found;
+    }
+
+    if (user && user.role === 'Customer') {
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userUid = user.uid || '';
+      const userName = (user.name || '').toLowerCase().trim();
+
+      const matched = displayCustomersList.find(
+        (c) =>
+          (c.email && c.email.toLowerCase().trim() === userEmail) ||
+          (userUid && (c.uid === userUid || c.id === userUid || c.id === `cust-${userUid.slice(0, 8)}`)) ||
+          (userName && c.name && c.name.toLowerCase().trim() === userName)
+      );
+
+      return matched || currentAuthCustomer || mockPortalCustomers[0];
+    }
+
+    return displayCustomersList[0] || mockPortalCustomers[0];
+  }, [selectedCustomerId, displayCustomersList, user, currentAuthCustomer]);
 
   // Combine live orders and print jobs into unified portal format
   const allPortalOrders = useMemo(() => {
@@ -145,20 +214,40 @@ export const CustomerPortalPage = () => {
 
   // Orders specifically for this customer
   const customerOrders = useMemo(() => {
+    const isKumariDemo =
+      activeCustomer.id === 'cust-1' ||
+      (activeCustomer.email && activeCustomer.email.toLowerCase() === 'kumari.fonseka@gmail.com');
+
     const filtered = allPortalOrders.filter(
       (o) =>
         o.customerId === activeCustomer.id ||
-        (o.customerName && activeCustomer.name && o.customerName.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+        (o.customerName &&
+          activeCustomer.name &&
+          o.customerName.toLowerCase().includes(activeCustomer.name.toLowerCase()))
     );
-    return filtered.length > 0 ? filtered : mockCustomerOrders.filter((o) => o.customerId === 'cust-1');
+
+    if (filtered.length > 0) return filtered;
+
+    // Only fallback to mock orders if this is explicitly the Kumari Fonseka demo account
+    if (isKumariDemo) {
+      return mockCustomerOrders.filter((o) => o.customerId === 'cust-1');
+    }
+
+    return [];
   }, [allPortalOrders, activeCustomer]);
 
   // Invoices specifically for this customer
   const customerInvoices = useMemo(() => {
+    const isKumariDemo =
+      activeCustomer.id === 'cust-1' ||
+      (activeCustomer.email && activeCustomer.email.toLowerCase() === 'kumari.fonseka@gmail.com');
+
     const liveFiltered = liveInvoices.filter(
       (inv) =>
         inv.customerId === activeCustomer.id ||
-        (inv.customer && activeCustomer.name && inv.customer.toLowerCase().includes(activeCustomer.name.toLowerCase()))
+        (inv.customer &&
+          activeCustomer.name &&
+          inv.customer.toLowerCase().includes(activeCustomer.name.toLowerCase()))
     );
 
     if (liveFiltered.length > 0) {
@@ -179,7 +268,11 @@ export const CustomerPortalPage = () => {
       }));
     }
 
-    return mockCustomerInvoices.filter((inv) => inv.customerId === 'cust-1');
+    if (isKumariDemo) {
+      return mockCustomerInvoices.filter((inv) => inv.customerId === 'cust-1');
+    }
+
+    return [];
   }, [liveInvoices, activeCustomer]);
 
   const activeOrdersCount = customerOrders.filter(
@@ -218,9 +311,9 @@ export const CustomerPortalPage = () => {
       {/* Branded Customer Header */}
       <CustomerHeader
         activeCustomer={activeCustomer}
-        customers={customersList}
+        customers={displayCustomersList}
         onSelectCustomer={(c) => {
-          setActiveCustomerId(c.id);
+          setSelectedCustomerId(c.id);
         }}
         activeTab={activeTab}
         onTabChange={setActiveTab}

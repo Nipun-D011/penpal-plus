@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../features/auth/pages/LoginPage';
 import SignupPage from '../features/auth/pages/SignupPage';
@@ -14,7 +13,7 @@ import SupplierPortalPage from '../features/supplier-portal/pages/SupplierPortal
 import ReportsPage from '../features/reports/pages/ReportsPage';
 import RateCardPage from '../features/rate-card/pages/RateCardPage';
 import ProtectedRoute from './ProtectedRoute';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, getRoleHomeRoute } from '../context/AuthContext';
 
 const RootRedirect = () => {
   const { isAuthenticated, loading, user } = useAuth();
@@ -28,13 +27,7 @@ const RootRedirect = () => {
   }
 
   if (isAuthenticated) {
-    if (user?.role === 'Customer') {
-      return <Navigate to="/portal/orders" replace />;
-    }
-    if (user?.role === 'Supplier') {
-      return <Navigate to="/supplier/portal" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getRoleHomeRoute(user?.role)} replace />;
   }
 
   return <Navigate to="/login" replace />;
@@ -56,7 +49,7 @@ export const AppRoutes = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <DashboardPage />
             </ProtectedRoute>
           }
@@ -64,7 +57,7 @@ export const AppRoutes = () => {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <ReportsPage />
             </ProtectedRoute>
           }
@@ -72,7 +65,7 @@ export const AppRoutes = () => {
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <InventoryPage />
             </ProtectedRoute>
           }
@@ -80,7 +73,7 @@ export const AppRoutes = () => {
         <Route
           path="/print-jobs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <PrintJobsPage />
             </ProtectedRoute>
           }
@@ -88,7 +81,7 @@ export const AppRoutes = () => {
         <Route
           path="/orders"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <OrdersPage />
             </ProtectedRoute>
           }
@@ -96,7 +89,7 @@ export const AppRoutes = () => {
         <Route
           path="/billing"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <BillingPage />
             </ProtectedRoute>
           }
@@ -104,7 +97,7 @@ export const AppRoutes = () => {
         <Route
           path="/customers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <CustomersPage />
             </ProtectedRoute>
           }
@@ -112,7 +105,7 @@ export const AppRoutes = () => {
         <Route
           path="/suppliers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <SuppliersPage />
             </ProtectedRoute>
           }
@@ -120,7 +113,7 @@ export const AppRoutes = () => {
         <Route
           path="/rate-card"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Admin', 'Staff']}>
               <RateCardPage />
             </ProtectedRoute>
           }
@@ -134,7 +127,7 @@ export const AppRoutes = () => {
         <Route
           path="/portal/orders"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
@@ -142,7 +135,7 @@ export const AppRoutes = () => {
         <Route
           path="/portal/invoices"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
@@ -150,7 +143,7 @@ export const AppRoutes = () => {
         <Route
           path="/portal/profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Customer', 'Admin', 'Staff']}>
               <CustomerPortalPage />
             </ProtectedRoute>
           }
@@ -164,7 +157,7 @@ export const AppRoutes = () => {
         <Route
           path="/supplier/portal"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Supplier', 'Admin']}>
               <SupplierPortalPage />
             </ProtectedRoute>
           }
@@ -172,7 +165,7 @@ export const AppRoutes = () => {
         <Route
           path="/supplier/purchase-orders"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Supplier', 'Admin']}>
               <SupplierPortalPage />
             </ProtectedRoute>
           }
@@ -180,7 +173,7 @@ export const AppRoutes = () => {
         <Route
           path="/supplier/bills"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Supplier', 'Admin']}>
               <SupplierPortalPage />
             </ProtectedRoute>
           }

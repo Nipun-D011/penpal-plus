@@ -19,6 +19,7 @@ import {
   updatePurchaseOrderStatus,
   subscribeToSupplierBills,
 } from '../../../services/portalService';
+import { useAuth } from '../../../context/AuthContext';
 import {
   Building2,
   Phone,
@@ -28,13 +29,42 @@ import {
 } from 'lucide-react';
 
 export const SupplierPortalPage = () => {
+  const { user } = useAuth();
   const [suppliersList, setSuppliersList] = useState(mockPortalSuppliers);
-  const [activeSupplierId, setActiveSupplierId] = useState(mockPortalSuppliers[0]?.id);
+  const [selectedSupplierId, setSelectedSupplierId] = useState(null);
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'deliveries', 'bills', 'alerts', 'profile'
   const [selectedPO, setSelectedPO] = useState(null);
   const [poModalOpen, setPOModalOpen] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState(mockSupplierPurchaseOrders);
   const [supplierBills, setSupplierBills] = useState(mockSupplierBills);
+
+  // Synthesize supplier profile for authenticated user
+  const currentAuthSupplier = useMemo(() => {
+    if (!user) return null;
+    const name = user.businessName || user.name || user.fullName || 'Supplier';
+    const nameParts = name.trim().split(' ').filter(Boolean);
+    const initials =
+      nameParts.length > 1
+        ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
+        : name.slice(0, 2).toUpperCase();
+
+    return {
+      id: `sup-${user.uid?.slice(0, 8) || 'user'}`,
+      uid: user.uid,
+      name,
+      category: 'Wholesale & Consumables',
+      contactPerson: user.name || 'Sales Rep',
+      phone: user.phoneNumber || '011 258 3390',
+      email: user.email || '',
+      address: 'Industrial Estate, Kurunegala',
+      paymentTerms: 'Credit 30 Days',
+      totalOrdersCount: 0,
+      totalBilledAmount: 'Rs. 0',
+      totalOutstanding: 'Rs. 0',
+      avatarInitials: initials,
+      avatarBg: 'bg-blue-700',
+    };
+  }, [user]);
 
   // Subscribe to live suppliers, purchase orders, and vendor bills
   useEffect(() => {
@@ -81,28 +111,90 @@ export const SupplierPortalPage = () => {
     };
   }, []);
 
+  // Ensure current auth supplier appears in list
+  const displaySuppliersList = useMemo(() => {
+    if (
+      currentAuthSupplier &&
+      !suppliersList.some(
+        (s) =>
+          s.id === currentAuthSupplier.id ||
+          (s.email && s.email.toLowerCase() === currentAuthSupplier.email.toLowerCase())
+      )
+    ) {
+      return [currentAuthSupplier, ...suppliersList];
+    }
+    return suppliersList;
+  }, [currentAuthSupplier, suppliersList]);
+
+  // Derive active supplier
   const activeSupplier = useMemo(() => {
-    return (
-      suppliersList.find((s) => s.id === activeSupplierId) ||
-      suppliersList[0] ||
-      mockPortalSuppliers[0]
-    );
-  }, [suppliersList, activeSupplierId]);
+    if (selectedSupplierId) {
+      const found = displaySuppliersList.find((s) => s.id === selectedSupplierId);
+      if (found) return found;
+    }
+
+    if (user && user.role === 'Supplier') {
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userUid = user.uid || '';
+      const userName = (user.businessName || user.name || '').toLowerCase().trim();
+
+      const matched = displaySuppliersList.find(
+        (s) =>
+          (s.email && s.email.toLowerCase().trim() === userEmail) ||
+          (userUid && (s.uid === userUid || s.id === userUid || s.id === `sup-${userUid.slice(0, 8)}`)) ||
+          (userName && s.name && s.name.toLowerCase().trim() === userName)
+      );
+
+      return matched || currentAuthSupplier || mockPortalSuppliers[0];
+    }
+
+    return displaySuppliersList[0] || mockPortalSuppliers[0];
+  }, [selectedSupplierId, displaySuppliersList, user, currentAuthSupplier]);
 
   // Filter items for current supplier
   const supplierPOs = useMemo(() => {
+    const isSarasaviDemo =
+      activeSupplier.id === 'sup-1' ||
+      (activeSupplier.email && activeSupplier.email.toLowerCase() === 'orders@sarasavi.lk');
+
     const filtered = purchaseOrders.filter(
-      (po) => po.supplierId === activeSupplier.id
+      (po) =>
+        po.supplierId === activeSupplier.id ||
+        (po.supplier &&
+          activeSupplier.name &&
+          po.supplier.toLowerCase().includes(activeSupplier.name.toLowerCase()))
     );
-    return filtered.length > 0 ? filtered : mockSupplierPurchaseOrders.filter((po) => po.supplierId === 'sup-1');
-  }, [purchaseOrders, activeSupplier.id]);
+
+    if (filtered.length > 0) return filtered;
+
+    if (isSarasaviDemo) {
+      return mockSupplierPurchaseOrders.filter((po) => po.supplierId === 'sup-1');
+    }
+
+    return [];
+  }, [purchaseOrders, activeSupplier]);
 
   const currentSupplierBills = useMemo(() => {
+    const isSarasaviDemo =
+      activeSupplier.id === 'sup-1' ||
+      (activeSupplier.email && activeSupplier.email.toLowerCase() === 'orders@sarasavi.lk');
+
     const filtered = supplierBills.filter(
-      (b) => b.supplierId === activeSupplier.id
+      (b) =>
+        b.supplierId === activeSupplier.id ||
+        (b.supplierName &&
+          activeSupplier.name &&
+          b.supplierName.toLowerCase().includes(activeSupplier.name.toLowerCase()))
     );
-    return filtered.length > 0 ? filtered : mockSupplierBills.filter((b) => b.supplierId === 'sup-1');
-  }, [supplierBills, activeSupplier.id]);
+
+    if (filtered.length > 0) return filtered;
+
+    if (isSarasaviDemo) {
+      return mockSupplierBills.filter((b) => b.supplierId === 'sup-1');
+    }
+
+    return [];
+  }, [supplierBills, activeSupplier]);
 
   const supplierAlerts = mockSupplierLowStockAlerts.filter(
     (a) => a.supplierId === activeSupplier.id
@@ -140,6 +232,7 @@ export const SupplierPortalPage = () => {
       console.warn('Could not update PO status in Firestore, updating local state:', err);
     }
 
+    // Update local state for immediate responsive feedback
     setPurchaseOrders((prev) =>
       prev.map((po) => {
         if (po.id === poId) {
@@ -156,24 +249,24 @@ export const SupplierPortalPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col">
-      {/* Branded Supplier Header */}
+      {/* Branded Header */}
       <SupplierHeader
         activeSupplier={activeSupplier}
-        suppliers={suppliersList}
-        onSelectSupplier={(s) => setActiveSupplierId(s.id)}
+        suppliers={displaySuppliersList}
+        onSelectSupplier={(sup) => setSelectedSupplierId(sup.id)}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         openPOCount={openPOCount}
         alertsCount={supplierAlerts.length}
       />
 
-      {/* Main Content Body */}
+      {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Vendor Top Banner */}
-        <div className="bg-gradient-to-r from-[#131d33] via-slate-900 to-[#1e293b] rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Welcome Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-[#131d33] to-slate-900 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-400/30 font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
+              <span className="text-xs bg-blue-500/30 text-blue-300 border border-blue-400/30 font-bold px-2 py-0.5 rounded uppercase tracking-wider">
                 {activeSupplier.category}
               </span>
               <span className="text-xs text-slate-400">
@@ -181,65 +274,62 @@ export const SupplierPortalPage = () => {
               </span>
             </div>
             <h1 className="text-2xl font-serif font-bold text-white tracking-tight">
-              {activeSupplier.name} · Vendor Portal
+              {activeSupplier.name}
             </h1>
             <p className="text-xs text-slate-300 mt-1 max-w-xl">
-              Fulfill purchase orders, track store receipt verification, monitor payment settlements, and review stock reorder alerts for Pen Pal Plus.
+              Fulfill bookstore orders, confirm item dispatches, monitor ledger statements, and reconcile payments directly with Pen Pal Plus.
             </p>
           </div>
 
           <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-xs flex-shrink-0">
             <div className="text-right">
               <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Total Orders
+                Open POs
               </span>
               <span className="text-lg font-bold text-white font-mono">
-                {activeSupplier.totalOrdersCount}
+                {openPOCount}
               </span>
             </div>
             <div className="h-8 w-px bg-white/20" />
             <div className="text-left">
               <span className="text-[10px] text-slate-300 block uppercase font-medium">
-                Outstanding Balance
+                In Transit
               </span>
               <span className="text-lg font-bold text-[#dfa84a] font-mono">
-                {activeSupplier.totalOutstanding}
+                {inTransitCount}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Dynamic Tab Views */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            <SupplierKpiCards
-              openPOCount={openPOCount}
-              inTransitCount={inTransitCount}
-              totalOutstanding={activeSupplier.totalOutstanding}
-              lifetimePurchases={activeSupplier.totalBilledAmount}
-            />
+        {/* Global Supplier KPI Cards */}
+        <SupplierKpiCards
+          supplier={activeSupplier}
+          openPOCount={openPOCount}
+          inTransitCount={inTransitCount}
+          alertsCount={supplierAlerts.length}
+        />
 
-            <SupplierPOTable
-              purchaseOrders={supplierPOs}
-              onViewPO={handleOpenPODetails}
-              onUpdateStatus={handleUpdatePOStatus}
-            />
-          </div>
+        {/* Dynamic Tab Contents */}
+        {activeTab === 'orders' && (
+          <SupplierPOTable
+            purchaseOrders={supplierPOs}
+            onViewDetails={handleOpenPODetails}
+            onUpdateStatus={handleUpdatePOStatus}
+          />
         )}
 
         {activeTab === 'deliveries' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
-              <h3 className="font-semibold text-slate-900 text-sm mb-1">
-                Active In-Transit Shipments
-              </h3>
-              <p className="text-xs text-slate-500">
-                Orders dispatched by {activeSupplier.name} currently awaiting warehouse receipt verification.
-              </p>
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Dispatched & In-Transit Shipments</h3>
+                <p className="text-xs text-slate-500">Track current consignments on their way to the Pen Pal Plus Kurunegala store</p>
+              </div>
             </div>
             <SupplierPOTable
-              purchaseOrders={supplierPOs.filter((po) => po.status !== 'Fulfilled')}
-              onViewPO={handleOpenPODetails}
+              purchaseOrders={supplierPOs.filter((po) => po.status === 'In Transit' || po.status === 'Confirmed')}
+              onViewDetails={handleOpenPODetails}
               onUpdateStatus={handleUpdatePOStatus}
             />
           </div>
@@ -248,17 +338,21 @@ export const SupplierPortalPage = () => {
         {activeTab === 'bills' && (
           <SupplierBillsLedger
             bills={currentSupplierBills}
-            totalOutstanding={activeSupplier.totalOutstanding}
-            paymentTerms={activeSupplier.paymentTerms}
+            supplier={activeSupplier}
           />
         )}
 
         {activeTab === 'alerts' && (
-          <SupplierReorderAlerts alerts={supplierAlerts} />
+          <SupplierReorderAlerts
+            alerts={supplierAlerts}
+            onAction={(alert) => {
+              alert(`Ready to generate urgent replenishment PO for ${alert.itemTitle}`);
+            }}
+          />
         )}
 
         {activeTab === 'profile' && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-3xl">
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 md:p-8 shadow-sm max-w-2xl">
             <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
               <div
                 className={`w-14 h-14 rounded-2xl ${activeSupplier.avatarBg} text-white flex items-center justify-center font-bold text-xl shadow-md`}
@@ -270,7 +364,7 @@ export const SupplierPortalPage = () => {
                   {activeSupplier.name}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Vendor Partner ID: {activeSupplier.id} · {activeSupplier.category}
+                  Supplier ID: {activeSupplier.id} · {activeSupplier.category}
                 </p>
               </div>
             </div>
@@ -280,15 +374,15 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <Building2 className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Contact Representative</span>
-                    <span className="text-slate-600">{activeSupplier.contactPerson || 'Vendor Rep'}</span>
+                    <span className="font-semibold text-slate-900 block">Company / Business Name</span>
+                    <span className="text-slate-600">{activeSupplier.name}</span>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
                   <Phone className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Phone</span>
+                    <span className="font-semibold text-slate-900 block">Contact Phone</span>
                     <span className="text-slate-600">{activeSupplier.phone}</span>
                   </div>
                 </div>
@@ -296,7 +390,7 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <Mail className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Email Address</span>
+                    <span className="font-semibold text-slate-900 block">Billing Email</span>
                     <span className="text-slate-600">{activeSupplier.email}</span>
                   </div>
                 </div>
@@ -306,7 +400,7 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Warehouse / Dispatch Address</span>
+                    <span className="font-semibold text-slate-900 block">Warehouse / Office Address</span>
                     <span className="text-slate-600">{activeSupplier.address}</span>
                   </div>
                 </div>
@@ -314,8 +408,8 @@ export const SupplierPortalPage = () => {
                 <div className="flex items-start gap-3">
                   <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-semibold text-slate-900 block">Agreed Settlement Terms</span>
-                    <span className="text-slate-600">{activeSupplier.paymentTerms}</span>
+                    <span className="font-semibold text-slate-900 block">Standard Payment Terms</span>
+                    <span className="text-slate-600 font-medium text-emerald-700">{activeSupplier.paymentTerms}</span>
                   </div>
                 </div>
               </div>
@@ -324,7 +418,7 @@ export const SupplierPortalPage = () => {
         )}
       </main>
 
-      {/* PO Detail & Verification Modal */}
+      {/* Purchase Order Detail Modal */}
       <PODetailModal
         isOpen={poModalOpen}
         onClose={() => setPOModalOpen(false)}

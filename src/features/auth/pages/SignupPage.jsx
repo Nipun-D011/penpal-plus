@@ -1,22 +1,24 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthHero from '../components/AuthHero';
 import SignupForm from '../components/SignupForm';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth, getRoleHomeRoute } from '../../../context/AuthContext';
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, isAuthenticated, user, loading } = useAuth();
+
+  // If already authenticated, redirect to role-specific home route
+  useEffect(() => {
+    if (!loading && isAuthenticated && user) {
+      navigate(getRoleHomeRoute(user.role), { replace: true });
+    }
+  }, [loading, isAuthenticated, user, navigate]);
 
   const handleSignup = async (formData) => {
     try {
-      const user = await signup(formData);
-      if (user?.role === 'Customer') {
-        navigate('/portal/orders');
-      } else if (user?.role === 'Supplier') {
-        navigate('/supplier/portal');
-      } else {
-        navigate('/dashboard');
-      }
+      const registeredUser = await signup(formData);
+      navigate(getRoleHomeRoute(registeredUser?.role));
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
