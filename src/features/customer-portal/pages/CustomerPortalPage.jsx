@@ -50,7 +50,7 @@ export const CustomerPortalPage = () => {
       name,
       email: user.email || '',
       phone: user.phoneNumber || '077 233 1190',
-      address: 'Kurunegala',
+      address: user.address || 'Kurunegala',
       memberSince: 'Since 2026',
       loyaltyTier: 'New Customer',
       totalOrders: 0,

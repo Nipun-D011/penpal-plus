@@ -222,7 +222,14 @@ export const AuthProvider = ({ children }) => {
               name: data.fullName || firebaseUser.displayName || 'Pen Pal Plus User',
               role: resolvedRole,
               phoneNumber: data.phoneNumber || '',
-              businessName: data.businessName || '',
+              businessName: data.businessName || data.companyName || '',
+              companyName: data.companyName || data.businessName || '',
+              contactPerson: data.contactPerson || '',
+              address: data.address || '',
+              category: data.category || '',
+              paymentTerms: data.paymentTerms || '',
+              department: data.department || '',
+              designation: data.department || data.designation || '',
             };
             if (data.role !== resolvedRole) {
               await setDoc(userDocRef, { role: resolvedRole }, { merge: true });
@@ -279,8 +286,12 @@ export const AuthProvider = ({ children }) => {
       const firebaseUser = userCredential.user;
 
       // 2. Update display name in Firebase Auth
+      const displayName =
+        role === 'Supplier'
+          ? (formData.companyName || formData.businessName || formData.contactPerson || fullName)
+          : fullName;
       await updateProfile(firebaseUser, {
-        displayName: fullName,
+        displayName,
       });
 
       // 3. Create user record in Firestore "users" collection
@@ -288,8 +299,16 @@ export const AuthProvider = ({ children }) => {
         uid: firebaseUser.uid,
         email,
         fullName,
+        displayName,
         phoneNumber: formData.phoneNumber || '',
-        businessName: formData.businessName || '',
+        businessName: formData.businessName || formData.companyName || '',
+        companyName: formData.companyName || formData.businessName || '',
+        contactPerson: formData.contactPerson || fullName,
+        address: formData.address || '',
+        category: formData.category || (role === 'Supplier' ? 'Paper & Board' : ''),
+        paymentTerms: formData.paymentTerms || (role === 'Supplier' ? 'Net 30' : ''),
+        department: formData.department || '',
+        designation: formData.department || '',
         role,
         createdAt: serverTimestamp(),
       };
@@ -307,7 +326,8 @@ export const AuthProvider = ({ children }) => {
               name: fullName,
               email,
               phone: formData.phoneNumber || '',
-              city: 'Kurunegala',
+              address: formData.address || '',
+              city: formData.address ? formData.address.split(',').pop().trim() : 'Kurunegala',
               ordersCount: 0,
               totalSpent: 'Rs. 0',
               totalSpentFormatted: '0',
@@ -328,10 +348,14 @@ export const AuthProvider = ({ children }) => {
             suppDocRef,
             {
               id: `sup-${firebaseUser.uid.slice(0, 8)}`,
-              name: formData.businessName || fullName,
+              name: formData.companyName || formData.businessName || fullName,
+              companyName: formData.companyName || formData.businessName || fullName,
+              contactPerson: formData.contactPerson || fullName,
+              contact: formData.contactPerson || fullName,
+              phone: formData.phoneNumber || '',
               email,
-              contact: formData.phoneNumber || '',
-              category: 'General Supplies',
+              category: formData.category || 'Paper & Board',
+              paymentTerms: formData.paymentTerms || 'Net 30',
               status: 'Active',
               createdAt: serverTimestamp(),
             },
@@ -345,10 +369,18 @@ export const AuthProvider = ({ children }) => {
       const sessionUser = {
         uid: firebaseUser.uid,
         email,
-        name: fullName,
+        name: displayName,
+        fullName,
         role,
         phoneNumber: formData.phoneNumber || '',
-        businessName: formData.businessName || '',
+        businessName: formData.businessName || formData.companyName || '',
+        companyName: formData.companyName || formData.businessName || '',
+        contactPerson: formData.contactPerson || '',
+        address: formData.address || '',
+        category: formData.category || '',
+        paymentTerms: formData.paymentTerms || '',
+        department: formData.department || '',
+        designation: formData.department || '',
       };
 
       setUser(sessionUser);
@@ -437,7 +469,14 @@ export const AuthProvider = ({ children }) => {
           name: data.fullName || firebaseUser.displayName || 'Pen Pal Plus User',
           role: resolvedRole,
           phoneNumber: data.phoneNumber || '',
-          businessName: data.businessName || '',
+          businessName: data.businessName || data.companyName || '',
+          companyName: data.companyName || data.businessName || '',
+          contactPerson: data.contactPerson || '',
+          address: data.address || '',
+          category: data.category || '',
+          paymentTerms: data.paymentTerms || '',
+          department: data.department || '',
+          designation: data.department || data.designation || '',
         };
         // Persist resolved role to Firestore if updated
         if (data.role !== resolvedRole) {
